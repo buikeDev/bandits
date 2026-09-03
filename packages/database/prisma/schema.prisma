@@ -20,8 +20,21 @@ model CustomerAccount {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  sessions     CustomerSession[]
 
   @@index([email])
+}
+
+model CustomerSession {
+  id         String          @id @default(cuid())
+  tokenHash  String          @unique
+  customerId String
+  customer   CustomerAccount @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+
+  @@index([customerId])
+  @@index([expiresAt])
 }
 
 model StaffAccount {

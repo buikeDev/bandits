@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useAuth } from '@/auth/AuthProvider';
 
 const nav = [
   ['Wristbands', '#wristbands'],
@@ -10,6 +13,7 @@ const nav = [
 ];
 
 export default function Header() {
+  const { customer, loading } = useAuth();
   return (
     <header className="relative z-50 bg-white">
       <div className="page-shell flex h-[72px] items-center justify-between">
@@ -32,9 +36,13 @@ export default function Header() {
           <button aria-label="Search" className="header-icon">
             <span className="text-xl">⌕</span>
           </button>
-          <button aria-label="Account" className="header-icon">
+          <Link
+            href={customer ? '/account' : '/login'}
+            aria-label={loading ? 'Account' : customer ? `${customer.name}'s account` : 'Sign in'}
+            className="header-icon"
+          >
             <span className="text-lg">♙</span>
-          </button>
+          </Link>
           <button aria-label="Cart" className="header-icon relative">
             <span className="text-lg">▱</span>
             <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-400 text-[9px] font-black">

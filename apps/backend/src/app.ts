@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express, { type Express } from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+import { customerAuthRouter } from './customer-auth/routes.js';
 
 type AppDependencies = {
   checkDatabase: () => Promise<void>;
@@ -26,6 +27,8 @@ export function createApp(dependencies: AppDependencies): Express {
       next(error);
     }
   });
+
+  app.use('/api/auth', customerAuthRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

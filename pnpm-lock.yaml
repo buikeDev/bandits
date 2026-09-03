@@ -32,6 +32,9 @@ importers:
       '@bandit/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@bandit/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -75,6 +78,9 @@ importers:
 
   apps/frontend:
     dependencies:
+      '@bandit/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: ^14.0.0
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
