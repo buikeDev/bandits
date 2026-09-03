@@ -1,31 +1,31 @@
 # Dependencies
 node_modules/
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
 
-# Build outputs
+# Build and framework output
 dist/
 build/
-.next/
 out/
+.next/
+.turbo/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
 
-# Environment variables
+# Generated files and caches
+.cache/
+.eslintcache
+.stylelintcache
+*.tgz
+packages/database/generated/
+
+# Environment files and secrets
 .env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-
-# OS
-Thumbs.db
-.DS_Store
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+*.crt
 
 # Logs
 logs/
@@ -35,10 +35,32 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Testing
+# Tests and coverage
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+blob-report/
 
-# Prisma
-prisma/dev.db
-prisma/dev.db-journal
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Keep pnpm-lock.yaml committed for reproducible installs.
+# Keep packages/database/prisma/migrations committed as schema history.
