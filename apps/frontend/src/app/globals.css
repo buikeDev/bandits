@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background: #f3f3f2;
+    color: #0a0a0a;
+    font-family: Arial, Helvetica, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply mx-auto w-full max-w-[1380px] px-5 sm:px-8 lg:px-12;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-black tracking-wide text-amber-500;
+  }
+
+  .section-title {
+    @apply text-2xl font-black tracking-[-0.035em] md:text-3xl;
+  }
+
+  .button-primary,
+  .button-secondary,
+  .button-light,
+  .button-dark {
+    @apply inline-flex items-center justify-center rounded px-5 py-3 text-[11px] font-bold transition-colors;
+  }
+
+  .button-primary {
+    @apply bg-black text-white hover:bg-neutral-800;
+  }
+
+  .button-secondary {
+    @apply border border-neutral-400 bg-white text-black hover:border-black;
+  }
+
+  .button-light {
+    @apply bg-white text-black hover:bg-neutral-200;
+  }
+
+  .button-dark {
+    @apply border border-white/70 bg-transparent text-white hover:bg-white hover:text-black;
+  }
+
+  .text-link {
+    @apply whitespace-nowrap text-[11px] font-bold hover:text-neutral-500;
+  }
+
+  .text-link span {
+    @apply ml-2 text-base;
+  }
+
+  .header-icon {
+    @apply grid h-8 w-8 place-items-center rounded-full hover:bg-neutral-100;
+  }
+}

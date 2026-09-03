@@ -1,0 +1,33 @@
+import cors from 'cors';
+import express, { type Express } from 'express';
+import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+
+type AppDependencies = {
+  checkDatabase: () => Promise<void>;
+  corsOrigin?: string;
+};
+
+export function createApp(dependencies: AppDependencies): Express {
+  const app = express();
+
+  app.disable('x-powered-by');
+  app.use(cors({ origin: dependencies.corsOrigin ?? 'http://localhost:3000', credentials: true }));
+  app.use(express.json({ limit: '1mb' }));
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ success: true, data: { status: 'ok' } });
+  });
+
+  app.get('/api/ready', async (_req, res, next) => {
+    try {
+      await dependencies.checkDatabase();
+      res.json({ success: true, data: { status: 'ready', database: 'connected' } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+}
