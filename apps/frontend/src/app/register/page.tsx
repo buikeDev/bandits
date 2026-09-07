@@ -19,7 +19,7 @@ export default function RegisterPage() {
     const parsed = customerRegistrationSchema.safeParse({ name: form.get('name'), email: form.get('email'), password: form.get('password') });
     if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? 'Check your details'); return; }
     setSubmitting(true);
-    try { await register(parsed.data); router.replace('/account'); }
+    try { await register(parsed.data); router.replace('/'); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to create account'); }
     finally { setSubmitting(false); }
   }

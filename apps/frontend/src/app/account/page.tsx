@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
@@ -14,7 +15,7 @@ export default function AccountPage() {
     if (!loading && !customer) router.replace('/login?next=/account');
   }, [customer, loading, router]);
 
-  if (loading || !customer) return <main className="grid min-h-screen place-items-center">Loading…</main>;
+  if (loading || !customer) return <LoadingScreen label="Getting your account ready" />;
 
   async function signOut() {
     try { await logout(); router.replace('/'); }

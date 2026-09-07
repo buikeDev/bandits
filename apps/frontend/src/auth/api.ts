@@ -10,6 +10,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   });
 
   if (response.status === 204) return undefined as T;
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`API returned ${response.status}. Confirm the backend is running on port 3001.`);
+  }
   const body = await response.json() as ApiResponse<T>;
   if (!response.ok || !body.success || body.data === undefined) {
     throw new Error(body.error ?? 'Request failed');

@@ -1,10 +1,10 @@
 const wristbands = [
-  ['TYVEK', 'Plain & Printed'],
-  ['VINYL / PLASTIC', 'Plain & Printed'],
-  ['RUBBER / SILICONE', 'Plain & Printed'],
-  ['FABRIC', 'Printed'],
-  ['VIP', 'Specialty Bands'],
-  ['HOSPITAL', 'Identification Bands'],
+  ['TYVEK', 'Plain & Printed', 'tyvek-standard'],
+  ['VINYL / PLASTIC', 'Plain & Printed', 'vinyl-plastic-standard'],
+  ['RUBBER / SILICONE', 'Plain & Printed', 'rubber-silicone-standard'],
+  ['FABRIC', 'Printed', 'fabric-standard'],
+  ['VIP', 'Specialty Bands', 'vip-standard'],
+  ['HOSPITAL', 'Identification Bands', 'hospital-standard'],
 ];
 
 export default function WristbandsShop() {
@@ -18,10 +18,10 @@ export default function WristbandsShop() {
           </a>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {wristbands.map(([name, variant], index) => (
+          {wristbands.map(([name, variant, slug], index) => (
             <a
               key={name}
-              href={`/wristbands/${index + 1}`}
+              href={`/wristbands/${slug}`}
               className="group overflow-hidden rounded-md border border-neutral-200 bg-white"
             >
               <div

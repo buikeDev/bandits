@@ -2,18 +2,20 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/auth/AuthProvider';
+import { useDesignOrder } from '@/components/DesignOrderProvider';
 
 const nav = [
-  ['Wristbands', '#wristbands'],
+  ['Wristbands', '/#wristbands'],
   ['Shop', '/shop'],
-  ['Custom Printing', '#custom'],
-  ['Fulfilment', '#fulfilment'],
-  ['Bulk Orders', '#bulk'],
+  ['Custom Printing', '/custom'],
+  ['Fulfilment', '/#fulfilment'],
+  ['Bulk Orders', '/#bulk'],
   ['About', '/about'],
 ];
 
 export default function Header() {
   const { customer, loading } = useAuth();
+  const { items } = useDesignOrder();
   return (
     <header className="relative z-50 bg-white">
       <div className="page-shell flex h-[72px] items-center justify-between">
@@ -43,12 +45,16 @@ export default function Header() {
           >
             <span className="text-lg">♙</span>
           </Link>
-          <button aria-label="Cart" className="header-icon relative">
+          <Link
+            href="/order"
+            aria-label={`Order: ${items.length} designs`}
+            className="header-icon relative"
+          >
             <span className="text-lg">▱</span>
             <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-amber-400 text-[9px] font-black">
-              3
+              {items.length}
             </span>
-          </button>
+          </Link>
         </div>
       </div>
     </header>

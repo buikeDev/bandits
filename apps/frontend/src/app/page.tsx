@@ -6,6 +6,7 @@ import Marketplace from '@/components/Marketplace';
 import Fulfillment from '@/components/Fulfillment';
 import BulkOrders from '@/components/BulkOrders';
 import Footer from '@/components/Footer';
+import { FeaturedCatalog } from '@/catalog/FeaturedCatalog';
 
 export default function Home() {
   return (
@@ -13,6 +14,7 @@ export default function Home() {
       <Header />
       <Hero />
       <WristbandsShop />
+      <FeaturedCatalog />
       <CustomPrinting />
       <Marketplace />
       <Fulfillment />

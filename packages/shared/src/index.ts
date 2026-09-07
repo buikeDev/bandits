@@ -30,3 +30,66 @@ export interface CustomerAccountDto {
 export interface AuthResponse {
   customer: CustomerAccountDto;
 }
+
+export const productListQuerySchema = z.object({
+  search: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(80).optional(),
+  kind: z.enum(['WRISTBAND', 'MARKETPLACE']).optional(),
+  sort: z.enum(['featured', 'newest', 'price-asc', 'price-desc', 'name']).default('featured'),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(48).default(12),
+});
+
+export type ProductListQuery = z.infer<typeof productListQuerySchema>;
+
+export interface CategoryDto {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+}
+
+export interface ProductSummaryDto {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  kind: 'WRISTBAND' | 'MARKETPLACE';
+  basePrice: number;
+  compareAtPrice: number | null;
+  imageUrl: string;
+  isFeatured: boolean;
+  category: Pick<CategoryDto, 'name' | 'slug'>;
+  brand: { name: string; slug: string } | null;
+  availableQuantity: number;
+}
+
+export interface ProductDetailDto extends ProductSummaryDto {
+  variants: Array<{
+    id: string;
+    name: string;
+    sku: string;
+    color: string | null;
+    material: string | null;
+    size: string | null;
+    priceAdjustment: number;
+    isCustomizationEnabled: boolean;
+    availableQuantity: number;
+  }>;
+  pricingTiers: Array<{ minQuantity: number; unitPrice: number }>;
+  customizationOptions: Array<{
+    id: string;
+    type: 'TEXT' | 'LOGO' | 'ARTWORK_UPLOAD' | 'COLOR';
+    name: string;
+    priceAdjustment: number;
+    isRequired: boolean;
+  }>;
+}
+
+export interface PaginatedProductsDto {
+  items: ProductSummaryDto[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
