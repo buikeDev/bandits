@@ -24,7 +24,12 @@ export function useCartFeedback() {
     const cart = document.querySelector<HTMLElement>('[data-order-cart]');
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     try {
-      if (!reduced && cart && typeof button.animate === 'function') {
+      if (
+        !reduced &&
+        !button.matches(':focus-visible') &&
+        cart &&
+        typeof button.animate === 'function'
+      ) {
         const start = button.getBoundingClientRect();
         const end = cart.getBoundingClientRect();
         const x = start.left + start.width / 2;
@@ -53,42 +58,30 @@ export function useCartFeedback() {
           [
             {
               transform: 'translate(0, 0) rotate(-20deg) scale(1)',
-              borderRadius: '14px',
               offset: 0,
             },
             {
-              transform: `translate(${dx * 0.35}px, ${Math.min(dy * 0.65, -120)}px) rotate(140deg) scale(.8)`,
-              borderRadius: '50%',
+              transform: `translate(${dx * 0.35}px, ${dy * 0.45}px) scale(.8)`,
               offset: 0.45,
             },
             {
-              transform: `translate(${dx}px, ${dy}px) rotate(420deg) scale(.15)`,
-              borderRadius: '50%',
-              opacity: 0.4,
+              transform: `translate(${dx}px, ${dy}px) scale(.5)`,
+              opacity: 0,
               offset: 1,
             },
           ],
-          { duration: 760, easing: 'cubic-bezier(.3,.05,.55,1)', fill: 'forwards' }
+          { duration: 180, easing: 'cubic-bezier(.23,1,.32,1)', fill: 'forwards' }
         );
         const press = button.animate(
-          [
-            { transform: 'scale(1)' },
-            { transform: 'scale(.96)', backgroundColor: '#bbf7d0' },
-            { transform: 'scale(1)' },
-          ],
-          { duration: 420 }
+          [{ transform: 'scale(1)' }, { transform: 'scale(.97)' }, { transform: 'scale(1)' }],
+          { duration: 120 }
         );
         animations.current = [flight, press];
         await flight.finished;
         ball.remove();
         const bounce = cart.animate(
-          [
-            { transform: 'scale(1)' },
-            { transform: 'scale(1.35) rotate(-12deg)', backgroundColor: '#fbbf24' },
-            { transform: 'scale(.95) rotate(8deg)' },
-            { transform: 'scale(1)' },
-          ],
-          { duration: 380 }
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'scale(1)' }],
+          { duration: 100 }
         );
         animations.current = [bounce];
         await bounce.finished;

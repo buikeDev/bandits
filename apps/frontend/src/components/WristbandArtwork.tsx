@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, type PointerEvent } from 'react';
+import BrandLogo from './BrandLogo';
 import { bandHeight, clampPosition, logoBounds, type LogoLayer } from './logo-layout';
 
 type Props = {
@@ -65,17 +66,15 @@ export default function WristbandArtwork(p: Props) {
             strokeOpacity=".25"
             strokeDasharray="3 4"
           />
-          <text
-            x="53"
-            y="119"
-            textAnchor="middle"
-            fill={p.ink}
-            opacity=".55"
-            fontFamily="Arial"
-            fontSize="9"
-          >
-            BAND<tspan fill="#f5c400">-</tspan>IT
-          </text>
+          <BrandLogo
+            x={28}
+            y={109}
+            width={50}
+            height={12}
+            color={p.ink}
+            tagline={false}
+            className=""
+          />
         </>
       )}
       {p.guides && p.onChange && (

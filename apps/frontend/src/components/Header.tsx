@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import BrandLogo from './BrandLogo';
 import { useAuth } from '@/auth/AuthProvider';
 import { useDesignOrder } from '@/components/DesignOrderProvider';
@@ -11,10 +13,12 @@ const nav = [
   ['Custom Printing', '/custom'],
   ['Fulfilment', '/fulfilment'],
   ['Bulk Orders', '/#bulk'],
-  ['About', '/about'],
 ];
 
 export default function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
   const { customer, loading } = useAuth();
   const { items } = useDesignOrder();
   return (
@@ -23,20 +27,24 @@ export default function Header() {
         <Link href="/" className="text-2xl font-black tracking-[-0.04em]">
           <BrandLogo />
         </Link>
-        <nav className="hidden items-center gap-8 lg:flex">
+        <nav aria-label="Main navigation" className="hidden items-center gap-6 lg:flex">
           {nav.map(([label, href]) => (
             <Link
               key={label}
               href={href}
-              className="text-[11px] font-semibold hover:text-neutral-500"
+              aria-current={pathname === href ? 'page' : undefined}
+              className="py-3 text-xs font-semibold hover:text-neutral-500 aria-[current=page]:underline underline-offset-8"
             >
               {label}
-              {label === 'Wristbands' && <span className="ml-1">⌄</span>}
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-4">
-          <button aria-label="Search" className="header-icon">
+        <div className="flex items-center gap-0 sm:gap-2">
+          <Link
+            href="/shop#catalog-search"
+            aria-label="Search wristbands"
+            className="header-icon hidden sm:grid"
+          >
             <svg
               width="20"
               height="20"
@@ -52,7 +60,7 @@ export default function Header() {
               <circle cx="10.5" cy="10.5" r="6.5" />
               <path d="m16 16 4.5 4.5" />
             </svg>
-          </button>
+          </Link>
           <Link
             href={customer ? '/account' : '/login'}
             aria-label={loading ? 'Account' : customer ? `${customer.name}'s account` : 'Sign in'}
@@ -100,8 +108,55 @@ export default function Header() {
               {items.length}
             </span>
           </Link>
+          <button
+            ref={menuButton}
+            type="button"
+            className="header-icon lg:hidden"
+            aria-label={menuOpen ? 'Close navigation' : 'Open navigation'}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              aria-hidden="true"
+            >
+              <path d={menuOpen ? 'M6 6l12 12M6 18L18 6' : 'M4 7h16M4 12h16M4 17h16'} />
+            </svg>
+          </button>
         </div>
       </div>
+      <nav
+        id="mobile-navigation"
+        aria-label="Mobile navigation"
+        hidden={!menuOpen}
+        className="border-t border-neutral-200 bg-white lg:hidden"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            setMenuOpen(false);
+            menuButton.current?.focus();
+          }
+        }}
+      >
+        <div className="page-shell grid py-3">
+          {[...nav, ['Search wristbands', '/shop#catalog-search']].map(([label, href]) => (
+            <Link
+              key={label}
+              href={href}
+              onClick={() => setMenuOpen(false)}
+              className="rounded-md px-3 py-3 text-sm font-semibold hover:bg-neutral-100"
+              aria-current={pathname === href ? 'page' : undefined}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </nav>
     </header>
   );
 }

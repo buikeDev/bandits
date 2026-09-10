@@ -51,6 +51,9 @@ blob-report/
 *.sqlite3
 
 # Editors
+# Local agent skill instructions (all filename casing)
+[Ss][Kk][Ii][Ll][Ll].[Mm][Dd]
+
 .idea/
 .vscode/*
 !.vscode/extensions.json

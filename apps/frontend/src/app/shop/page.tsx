@@ -12,6 +12,7 @@ export default function ShopPage() {
   const [catalog, setCatalog] = useState<PaginatedProductsDto | null>(null);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [category, setCategory] = useState('');
   const [sort, setSort] = useState('featured');
   const [page, setPage] = useState(1);
@@ -59,6 +60,10 @@ export default function ShopPage() {
           </div>
           <form onSubmit={submit} className="flex">
             <input
+              id="catalog-search"
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               name="search"
               aria-label="Search products"
               placeholder="Search wristbands"
@@ -69,6 +74,7 @@ export default function ShopPage() {
         </div>
         <div className="flex flex-wrap gap-3 mt-8">
           <select
+            aria-label="Filter by category"
             value={category}
             onChange={(e) => {
               setCategory(e.target.value);
@@ -84,6 +90,7 @@ export default function ShopPage() {
             ))}
           </select>
           <select
+            aria-label="Sort products"
             value={sort}
             onChange={(e) => {
               setSort(e.target.value);
@@ -110,30 +117,55 @@ export default function ShopPage() {
         )}
         {catalog && (
           <>
+            {catalog.items.length === 0 && (
+              <div
+                role="status"
+                className="mt-8 rounded-xl border border-neutral-200 bg-white px-6 py-12 text-center"
+              >
+                <h2 className="text-xl font-bold">No wristbands found</h2>
+                <p className="mt-2 text-sm text-neutral-600">
+                  Try another search or browse all categories.
+                </p>
+                <button
+                  type="button"
+                  className="button-secondary mt-5"
+                  onClick={() => {
+                    setSearch('');
+                    setSearchInput('');
+                    setCategory('');
+                    setPage(1);
+                  }}
+                >
+                  Clear search and filters
+                </button>
+              </div>
+            )}
             <div className="grid gap-5 mt-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {catalog.items.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
-            <div className="flex items-center justify-center gap-4 mt-10">
-              <button
-                className="button-secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((value) => value - 1)}
-              >
-                Previous
-              </button>
-              <span className="text-sm">
-                Page {catalog.page} of {Math.max(1, catalog.totalPages)}
-              </span>
-              <button
-                className="button-secondary"
-                disabled={page >= catalog.totalPages}
-                onClick={() => setPage((value) => value + 1)}
-              >
-                Next
-              </button>
-            </div>
+            {catalog.items.length > 0 && (
+              <div className="flex items-center justify-center gap-4 mt-10">
+                <button
+                  className="button-secondary"
+                  disabled={page <= 1}
+                  onClick={() => setPage((value) => value - 1)}
+                >
+                  Previous
+                </button>
+                <span className="text-sm">
+                  Page {catalog.page} of {Math.max(1, catalog.totalPages)}
+                </span>
+                <button
+                  className="button-secondary"
+                  disabled={page >= catalog.totalPages}
+                  onClick={() => setPage((value) => value + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>

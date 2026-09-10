@@ -1,7 +1,23 @@
-type BrandLogoProps = { className?: string; tagline?: boolean };
+type BrandLogoProps = {
+  className?: string;
+  tagline?: boolean;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  color?: string;
+};
 
 /** Brand-reference wordmark: bold lettering, yellow hyphen, spaced tagline. */
-export default function BrandLogo({ className = 'w-36', tagline = true }: BrandLogoProps) {
+export default function BrandLogo({
+  className = 'w-36',
+  tagline = true,
+  x,
+  y,
+  width,
+  height,
+  color,
+}: BrandLogoProps) {
   return (
     <svg
       viewBox={`0 0 240 ${tagline ? 76 : 52}`}
@@ -9,6 +25,11 @@ export default function BrandLogo({ className = 'w-36', tagline = true }: BrandL
       aria-label="BAND-IT"
       className={`inline-block shrink-0 ${className}`}
       fill="currentColor"
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      color={color}
     >
       <text
         x="0"

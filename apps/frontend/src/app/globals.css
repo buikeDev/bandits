@@ -9,6 +9,17 @@
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 88px;
+  }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid #a16207;
+    outline-offset: 4px;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   body {
@@ -37,7 +48,12 @@
   .button-secondary,
   .button-light,
   .button-dark {
-    @apply inline-flex items-center justify-center rounded px-5 py-3 text-[11px] font-bold transition-colors;
+    @apply inline-flex min-h-11 items-center justify-center rounded-md px-5 py-3 text-xs font-bold;
+    transition:
+      background-color 160ms ease,
+      color 160ms ease,
+      border-color 160ms ease,
+      transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
   }
 
   .button-primary {
@@ -65,6 +81,28 @@
   }
 
   .header-icon {
-    @apply grid h-8 w-8 place-items-center rounded-full hover:bg-neutral-100;
+    @apply grid h-11 w-11 place-items-center rounded-full hover:bg-neutral-100;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.button-primary, .button-secondary, .button-light, .button-dark):active:not(:disabled):not(
+      :focus-visible
+    ) {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
