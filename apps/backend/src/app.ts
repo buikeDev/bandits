@@ -3,6 +3,7 @@ import express, { type Express } from 'express';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { customerAuthRouter } from './customer-auth/routes.js';
 import { catalogRouter } from './catalog/routes.js';
+import { orderRouter } from './orders/routes.js';
 
 type AppDependencies = {
   checkDatabase: () => Promise<void>;
@@ -14,6 +15,7 @@ export function createApp(dependencies: AppDependencies): Express {
 
   app.disable('x-powered-by');
   app.use(cors({ origin: dependencies.corsOrigin ?? 'http://localhost:3000', credentials: true }));
+  app.use('/api/orders', express.json({ limit: '6mb' }), orderRouter);
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {

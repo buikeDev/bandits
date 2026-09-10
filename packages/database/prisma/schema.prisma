@@ -21,6 +21,7 @@ model CustomerAccount {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   sessions     CustomerSession[]
+  orders       OrderEnquiry[]
 
   @@index([email])
 }
@@ -166,6 +167,26 @@ enum CustomizationType {
   LOGO
   ARTWORK_UPLOAD
   COLOR
+}
+
+// Immutable enquiry snapshot. Opening WhatsApp is not proof of sending or payment.
+model OrderEnquiry {
+  customerId    String?
+  customer      CustomerAccount? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  @@index([customerId, createdAt])
+  id            String   @id @default(cuid())
+  requestId     String   @unique
+  requestHash   String
+  reference     String   @unique
+  status        String   @default("AWAITING_WHATSAPP")
+  currency      String   @default("NGN")
+  snapshot      Json
+  message       String
+  totalQuantity Int
+  subtotalMinor BigInt
+  quoteRequired Boolean
+  createdAt     DateTime @default(now())
+  @@index([createdAt])
 }
 
 // TODO: Add remaining commerce domain models

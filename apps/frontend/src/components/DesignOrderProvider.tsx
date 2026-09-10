@@ -68,6 +68,7 @@ const OrderContext = createContext<{
   error: string;
   add: (item: Omit<DesignItem, 'id'>) => boolean;
   remove: (id: string) => void;
+  clearCheckedOut: (snapshot: DesignItem[]) => boolean;
   updateQuantity: (id: string, quantity: number) => void;
 } | null>(null);
 
@@ -129,6 +130,16 @@ export function DesignOrderProvider({ children }: { children: React.ReactNode })
         remove: (id) => {
           save(current.current.filter((item) => item.id !== id));
         },
+        clearCheckedOut: (snapshot) =>
+          save(
+            current.current.filter(
+              (item) =>
+                !snapshot.some(
+                  (checked) =>
+                    checked.id === item.id && JSON.stringify(checked) === JSON.stringify(item)
+                )
+            )
+          ),
         updateQuantity: (id, quantity) => {
           const item = current.current.find((line) => line.id === id);
           if (item?.product) {

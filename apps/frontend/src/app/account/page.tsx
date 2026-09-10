@@ -1,5 +1,6 @@
 'use client';
 import BrandLogo from '@/components/BrandLogo';
+import CustomerOrders from '@/components/CustomerOrders';
 
 import Link from 'next/link';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -49,9 +50,7 @@ export default function AccountPage() {
             <dd className="mt-1 font-semibold">{customer.email}</dd>
           </div>
         </dl>
-        <p className="mt-6 text-sm text-neutral-600">
-          Order history and saved addresses will appear here after those domains are implemented.
-        </p>
+        <CustomerOrders key={customer.id} />
         {error && (
           <p role="alert" className="mt-4 text-sm text-red-700">
             {error}

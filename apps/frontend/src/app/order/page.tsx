@@ -7,6 +7,7 @@ import type { ProductDetailDto } from '@bandit/shared';
 import { getProduct } from '@/catalog/api';
 import { calculatePrice, formatOrderPrice } from '@/components/order-pricing';
 import Header from '@/components/Header';
+import WhatsAppCheckout from '@/components/WhatsAppCheckout';
 import Footer from '@/components/Footer';
 import { useDesignOrder } from '@/components/DesignOrderProvider';
 
@@ -263,20 +264,7 @@ export default function OrderPage() {
                   delivery will be confirmed through WhatsApp.
                 </p>
               </div>
-              <p className="mt-6 border-t pt-5 text-xs leading-5 text-neutral-500">
-                Your designs are saved in this browser, ready for when you place your order.
-              </p>
-              <button
-                type="button"
-                disabled
-                aria-describedby="checkout-status"
-                className="button-primary mt-5 w-full disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Continue to checkout
-              </button>
-              <p id="checkout-status" className="mt-3 text-xs leading-5 text-neutral-500">
-                WhatsApp checkout is coming soon. Your order has not been sent yet.
-              </p>
+              <WhatsAppCheckout items={items} disabled={!ready || loadingPrices} />
             </aside>
           </div>
         )}

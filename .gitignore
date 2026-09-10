@@ -51,8 +51,12 @@ blob-report/
 *.sqlite3
 
 # Editors
+# Local customer portal checklist
+/customer-portal-todo.md
+
 # Local agent skill instructions (all filename casing)
 [Ss][Kk][Ii][Ll][Ll].[Mm][Dd]
+.agents
 
 .idea/
 .vscode/*

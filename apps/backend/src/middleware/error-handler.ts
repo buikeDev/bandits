@@ -10,6 +10,15 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 };
 
 export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
+  if (error && typeof error === 'object' && 'type' in error && error.type === 'entity.too.large') {
+    res
+      .status(413)
+      .json({
+        success: false,
+        error: 'The artwork is too large. Use smaller images and try again.',
+      });
+    return;
+  }
   if (error instanceof ZodError) {
     res.status(400).json({ success: false, error: 'Invalid request', details: error.flatten() });
     return;

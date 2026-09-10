@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+export interface WhatsAppOrderDto {
+  reference: string;
+  message: string;
+  phone: string;
+}
+
+export interface WhatsAppOrderDto {
+  reference: string;
+  message: string;
+  phone: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
