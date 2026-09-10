@@ -4,7 +4,7 @@ import { AuthProvider } from '@/auth/AuthProvider';
 import { DesignOrderProvider } from '@/components/DesignOrderProvider';
 
 export const metadata: Metadata = {
-  title: 'BANDIT - Wristbands & Fulfilment',
+  title: 'BAND-IT - Wristbands & Fulfilment',
   description: 'Premium wristbands and fulfilment services',
 };
 

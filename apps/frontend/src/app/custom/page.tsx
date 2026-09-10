@@ -1,9 +1,14 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useState } from 'react';
+import LogoLayerControls from '@/components/LogoLayerControls';
+import WristbandArtwork from '@/components/WristbandArtwork';
+import type { LogoLayer } from '@/components/logo-layout';
+import { useLogoHistory } from '@/components/useLogoHistory';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDesignOrder } from '@/components/DesignOrderProvider';
+import { useCartFeedback } from '@/components/useCartFeedback';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 
@@ -26,6 +31,7 @@ const colors = [
 
 export default function CustomPage() {
   const router = useRouter();
+  const { adding, busy, confirm } = useCartFeedback();
   const { add, items, ready, error: orderError } = useDesignOrder();
   const [quantity, setQuantity] = useState('100');
   const [readingLogo, setReadingLogo] = useState(false);
@@ -35,59 +41,39 @@ export default function CustomPage() {
   const [message, setMessage] = useState('GOOD TIMES. GREAT PEOPLE.');
   const [subtitle, setSubtitle] = useState('ALL ACCESS • 2026');
   const [font, setFont] = useState('Arial, Helvetica, sans-serif');
-  const [logo, setLogo] = useState('');
+  const { logos, setLogos, begin, end, undo, redo, canUndo, canRedo } = useLogoHistory();
+  const [zoom, setZoom] = useState(100);
+  const [guides, setGuides] = useState(true);
+  const [selectedLogo, setSelectedLogo] = useState('');
+  const [uploadEpoch, setUploadEpoch] = useState(0);
+  function updateLogo(id: string, patch: Partial<LogoLayer>) {
+    setLogos((current) =>
+      current.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer))
+    );
+  }
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const upload = useRef<HTMLInputElement>(null);
-  const uploadVersion = useRef(0);
+
   const sameColor = color[1] === ink;
 
   function reset() {
     setQuantity('100');
     setReadingLogo(false);
-    uploadVersion.current += 1;
+    setUploadEpoch((value) => value + 1);
     setMaterial(materials[0]);
     setColor(colors[0]);
     setInk('#171717');
     setMessage('GOOD TIMES. GREAT PEOPLE.');
     setSubtitle('ALL ACCESS • 2026');
     setFont('Arial, Helvetica, sans-serif');
-    setLogo('');
+    setLogos([]);
+    setSelectedLogo('');
     setError('');
     setNotice('Design reset.');
-    if (upload.current) upload.current.value = '';
   }
 
-  function readLogo(file?: File) {
-    const version = ++uploadVersion.current;
-    setError('');
-    setReadingLogo(false);
-    if (!file) return;
-    if (
-      !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
-      file.size > 2 * 1024 * 1024
-    ) {
-      setError('Choose a PNG, JPG or WebP image under 2 MB.');
-      return;
-    }
-    const reader = new FileReader();
-    setReadingLogo(true);
-    reader.onload = () => {
-      if (version === uploadVersion.current) {
-        setLogo(String(reader.result));
-        setReadingLogo(false);
-      }
-    };
-    reader.onerror = () => {
-      if (version === uploadVersion.current) {
-        setReadingLogo(false);
-        setError('This image could not be read. Please try another.');
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function addDesign(continueDesigning: boolean) {
+  async function addDesign(continueDesigning: boolean, button: HTMLButtonElement) {
+    if (busy.current) return;
     const units = Number(quantity);
     if (!Number.isInteger(units) || units < 1 || units > 100000) {
       setError('Enter a whole-number quantity between 1 and 100,000.');
@@ -106,10 +92,13 @@ export default function CustomPage() {
       message,
       subtitle,
       font,
-      logo,
+      logo: '',
+      logos,
       quantity: units,
     });
     if (!saved) return;
+    setNotice('Design added to your order.');
+    if (!(await confirm(button, color[1]))) return;
     if (continueDesigning) {
       reset();
       setNotice('Design added to your order. You can now create another.');
@@ -139,11 +128,11 @@ export default function CustomPage() {
             </p>
           </div>
           <span className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold">
-            BANDIT DESIGN STUDIO
+            BAND-IT DESIGN STUDIO
           </span>
         </div>
         <div className="grid items-start gap-6 lg:grid-cols-[1.25fr_1fr]">
-          <section aria-labelledby="preview-heading" className="lg:sticky lg:top-6">
+          <section aria-labelledby="preview-heading" className="lg:sticky lg:top-24">
             <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-[#eae9e5]">
               <div className="flex items-center justify-between p-6">
                 <h2 id="preview-heading" className="text-xs font-bold uppercase tracking-widest">
@@ -154,90 +143,71 @@ export default function CustomPage() {
                   Live preview
                 </span>
               </div>
+              <div className="flex flex-wrap items-center gap-2 border-y border-black/5 bg-white/50 px-4 py-3 text-xs">
+                <button
+                  type="button"
+                  onClick={undo}
+                  disabled={!canUndo || readingLogo || adding}
+                  className="rounded border bg-white px-3 py-2 disabled:opacity-30"
+                  aria-label="Undo logo edit"
+                >
+                  ↶ Undo
+                </button>
+                <button
+                  type="button"
+                  onClick={redo}
+                  disabled={!canRedo || readingLogo || adding}
+                  className="rounded border bg-white px-3 py-2 disabled:opacity-30"
+                  aria-label="Redo logo edit"
+                >
+                  ↷ Redo
+                </button>
+                <label className="ml-auto flex items-center gap-2">
+                  Zoom
+                  <select
+                    aria-label="Preview zoom"
+                    value={zoom}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                    className="rounded border bg-white p-2"
+                  >
+                    <option value="100">100%</option>
+                    <option value="150">150%</option>
+                    <option value="200">200%</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={guides}
+                    onChange={(event) => setGuides(event.target.checked)}
+                  />
+                  Guides
+                </label>
+              </div>
               <div
-                className="flex min-h-[310px] items-center px-4 sm:min-h-[390px] sm:px-8"
+                className="overflow-x-auto px-3 py-12 sm:py-16"
                 style={{
                   backgroundImage: 'radial-gradient(#00000012 1px, transparent 1px)',
                   backgroundSize: '20px 20px',
                 }}
               >
-                <svg
-                  viewBox="0 0 720 230"
-                  role="img"
-                  aria-label={`${color[0]} ${material.name} wristband: ${message}, ${subtitle}`}
-                  className="w-full drop-shadow-xl"
-                >
-                  <title>{`${material.name} wristband concept`}</title>
-                  <desc>
-                    Concept preview only. Dimensions and colours require confirmation before
-                    printing.
-                  </desc>
-                  <rect
-                    x="12"
-                    y={(230 - material.height) / 2}
-                    width="696"
-                    height={material.height}
-                    rx={material.name === 'Silicone' ? 28 : 8}
-                    fill={color[1]}
-                    stroke="#00000020"
+                <div style={{ width: `${zoom}%`, minWidth: '100%' }}>
+                  <WristbandArtwork
+                    material={material.name}
+                    color={color[1]}
+                    ink={ink}
+                    message={message}
+                    subtitle={subtitle}
+                    font={font}
+                    logos={logos}
+                    selected={selectedLogo}
+                    onSelect={setSelectedLogo}
+                    onChange={readingLogo || adding ? undefined : updateLogo}
+                    onEditStart={begin}
+                    onEditEnd={end}
+                    guides={guides}
                   />
-                  {material.name !== 'Silicone' && (
-                    <>
-                      <path
-                        d={`M 94 ${(230 - material.height) / 2 + 6} v ${material.height - 12}`}
-                        stroke={ink}
-                        strokeOpacity="0.25"
-                        strokeDasharray="3 4"
-                      />
-                      <text
-                        x="53"
-                        y="119"
-                        textAnchor="middle"
-                        fill={ink}
-                        opacity="0.55"
-                        fontFamily="Arial"
-                        fontSize="9"
-                      >
-                        BANDIT.
-                      </text>
-                    </>
-                  )}
-                  {logo && (
-                    <image
-                      href={logo}
-                      x="112"
-                      y="91"
-                      width="48"
-                      height="48"
-                      preserveAspectRatio="xMidYMid meet"
-                    />
-                  )}
-                  <text
-                    x={logo ? 414 : 382}
-                    y={subtitle ? 113 : 122}
-                    textAnchor="middle"
-                    fill={ink}
-                    fontFamily={font}
-                    fontWeight="900"
-                    fontSize={Math.min(24, 740 / Math.max(message.length, 1))}
-                    letterSpacing="1"
-                  >
-                    {message}
-                  </text>
-                  {subtitle && (
-                    <text
-                      x={logo ? 414 : 382}
-                      y="132"
-                      textAnchor="middle"
-                      fill={ink}
-                      fontFamily={font}
-                      fontSize="10"
-                      letterSpacing="2"
-                    >
-                      {subtitle}
-                    </text>
-                  )}
-                </svg>
+                </div>
               </div>
               <div className="flex flex-wrap justify-between gap-3 border-t border-black/10 px-6 py-4 text-xs text-neutral-600">
                 <span>Flat artwork view</span>
@@ -371,39 +341,17 @@ export default function CustomPage() {
                   Choose a contrasting print colour so your message is visible.
                 </p>
               )}
-              <label
-                htmlFor="band-logo"
-                className="mt-5 block rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4"
-              >
-                <span className="block text-xs font-bold">
-                  Add your logo <span className="font-normal text-neutral-500">(optional)</span>
-                </span>
-                <span className="mt-1 block text-xs text-neutral-500">
-                  PNG, JPG or WebP · Up to 2 MB
-                </span>
-                <input
-                  ref={upload}
-                  id="band-logo"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(e) => readLogo(e.target.files?.[0])}
-                  className="mt-3 block w-full text-xs file:mr-3 file:rounded file:border-0 file:bg-black file:px-3 file:py-2 file:text-white"
-                />
-              </label>
-              {logo && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    uploadVersion.current += 1;
-                    setReadingLogo(false);
-                    setLogo('');
-                    if (upload.current) upload.current.value = '';
-                  }}
-                  className="mt-2 text-xs underline"
-                >
-                  Remove logo
-                </button>
-              )}
+              <LogoLayerControls
+                key={uploadEpoch}
+                layers={logos}
+                selected={selectedLogo}
+                onSelect={setSelectedLogo}
+                onChange={setLogos}
+                onLoading={setReadingLogo}
+                onEditStart={begin}
+                onEditEnd={end}
+                disabled={adding}
+              />
               {error && (
                 <p role="alert" className="mt-2 text-xs text-red-700">
                   {error}
@@ -432,19 +380,19 @@ export default function CustomPage() {
               />
               <button
                 type="button"
-                disabled={!ready || readingLogo}
-                onClick={() => addDesign(false)}
+                disabled={!ready || readingLogo || adding}
+                onClick={(event) => void addDesign(false, event.currentTarget)}
                 className="button-primary w-full !py-4 !text-sm disabled:opacity-50"
               >
-                Add to order
+                {adding ? '✓ Added to order' : 'Add to order'}
               </button>
               <button
                 type="button"
-                disabled={!ready || readingLogo}
-                onClick={() => addDesign(true)}
+                disabled={!ready || readingLogo || adding}
+                onClick={(event) => void addDesign(true, event.currentTarget)}
                 className="button-secondary mt-3 w-full !py-4 !text-sm disabled:opacity-50"
               >
-                Add & create another design
+                {adding ? '✓ Design added!' : 'Add & create another design'}
               </button>
               {readingLogo && (
                 <p role="status" className="mt-3 text-xs">

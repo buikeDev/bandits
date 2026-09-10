@@ -1,7 +1,7 @@
 {
   "name": "@bandit/backend",
   "version": "0.1.0",
-  "description": "BANDIT backend - Express API",
+  "description": "BAND-IT backend - Express API",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

@@ -1,4 +1,4 @@
-# BANDIT
+# BAND-IT
 
 A modern ecommerce and fulfilment platform for wristbands and related products.
 

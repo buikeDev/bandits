@@ -1,7 +1,7 @@
 {
   "name": "@bandit/shared",
   "version": "0.1.0",
-  "description": "BANDIT shared types and utilities",
+  "description": "BAND-IT shared types and utilities",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import BrandLogo from './BrandLogo';
 
 const columns = [
   {
@@ -21,7 +22,7 @@ export default function Footer() {
     <footer className="bg-white">
       <div className="page-shell grid gap-9 border-b border-neutral-200 py-10 md:grid-cols-[1.15fr_repeat(4,0.7fr)_1.25fr]">
         <div>
-          <p className="text-xl font-black">BANDIT.</p>
+          <BrandLogo />
           <p className="mt-4 text-[11px] leading-5 text-neutral-600">
             Wristbands. Products. Fulfilment.
             <br />
@@ -40,7 +41,14 @@ export default function Footer() {
             <ul className="mt-4 space-y-2">
               {column.links.map((link) => (
                 <li key={link}>
-                  <Link href="#" className="text-[10px] text-neutral-600 hover:text-black">
+                  <Link
+                    href={
+                      column.title === 'FULFILMENT'
+                        ? `/fulfilment#${({ 'How It Works': 'how-it-works', Storage: 'storage', Packaging: 'packaging', Delivery: 'delivery', 'For Businesses': 'businesses' } as Record<string, string>)[link]}`
+                        : '#'
+                    }
+                    className="text-[10px] text-neutral-600 hover:text-black"
+                  >
                     {link}
                   </Link>
                 </li>
@@ -67,7 +75,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="page-shell flex flex-col justify-between gap-3 py-6 text-[9px] text-neutral-500 sm:flex-row">
-        <p>© 2026 Bandit. All rights reserved.</p>
+        <p>© 2026 BAND-IT. All rights reserved.</p>
         <div className="flex gap-8">
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms & Conditions</Link>

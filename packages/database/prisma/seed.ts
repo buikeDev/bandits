@@ -13,7 +13,7 @@ const catalog = [
 
 async function main(): Promise<void> {
   const brand = await prisma.brand.upsert({
-    where: { slug: 'bandit' }, update: { name: 'BANDIT' }, create: { name: 'BANDIT', slug: 'bandit' },
+    where: { slug: 'bandit' }, update: { name: 'BAND-IT' }, create: { name: 'BAND-IT', slug: 'bandit' },
   });
 
   for (const [index, item] of catalog.entries()) {

@@ -34,7 +34,7 @@ export default function Fulfillment() {
                 <a href="/fulfilment" className="button-light">
                   Explore Fulfilment
                 </a>
-                <a href="/contact" className="button-dark">
+                <a href="/fulfilment#enquire" className="button-dark">
                   Talk to Us
                 </a>
               </div>

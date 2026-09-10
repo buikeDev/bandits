@@ -1,10 +1,10 @@
-# BANDIT
+# BAND-IT
 
-BANDIT is an ecommerce and fulfilment platform.
+BAND-IT is an ecommerce and fulfilment platform.
 
 ## Primary Business
 
-BANDIT primarily sells event and identification wristbands:
+BAND-IT primarily sells event and identification wristbands:
 
 - Paper Tyvek — plain and printed
 - Vinyl/plastic — plain and printed
@@ -15,16 +15,16 @@ BANDIT primarily sells event and identification wristbands:
 
 ## Additional Commerce
 
-BANDIT may sell products outside wristbands.
+BAND-IT may sell products outside wristbands.
 
-Some of these products can belong to businesses that use BANDIT's
+Some of these products can belong to businesses that use BAND-IT's
 fulfilment service.
 
-These products can receive visibility through the BANDIT marketplace.
+These products can receive visibility through the BAND-IT marketplace.
 
 ## Fulfilment
 
-BANDIT provides fulfilment services to businesses, including:
+BAND-IT provides fulfilment services to businesses, including:
 
 - inventory storage
 - order processing

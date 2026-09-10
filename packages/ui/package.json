@@ -1,7 +1,7 @@
 {
   "name": "@bandit/ui",
   "version": "0.1.0",
-  "description": "BANDIT shared UI components",
+  "description": "BAND-IT shared UI components",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -1,7 +1,7 @@
 {
   "name": "@bandit/frontend",
   "version": "0.1.0",
-  "description": "BANDIT frontend - Next.js application",
+  "description": "BAND-IT frontend - Next.js application",
   "type": "module",
   "scripts": {
     "dev": "next dev",

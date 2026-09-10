@@ -1,12 +1,62 @@
 'use client';
 
 import Link from 'next/link';
+import WristbandArtwork from '@/components/WristbandArtwork';
+import { useEffect, useState } from 'react';
+import type { ProductDetailDto } from '@bandit/shared';
+import { getProduct } from '@/catalog/api';
+import { calculatePrice, formatOrderPrice } from '@/components/order-pricing';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useDesignOrder } from '@/components/DesignOrderProvider';
 
 export default function OrderPage() {
   const { items, ready, error, remove, updateQuantity } = useDesignOrder();
+  const [catalog, setCatalog] = useState<Record<string, ProductDetailDto>>({});
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const productSlugs = JSON.stringify(
+    [...new Set(items.flatMap((item) => (item.product ? [item.product.slug] : [])))].sort()
+  );
+  useEffect(() => {
+    let active = true;
+    const slugs = JSON.parse(productSlugs) as string[];
+    setLoadingPrices(slugs.length > 0);
+    Promise.all(
+      slugs.map(async (slug) => {
+        try {
+          return [slug, await getProduct(slug)] as const;
+        } catch {
+          return null;
+        }
+      })
+    ).then((results) => {
+      if (!active) return;
+      setCatalog(Object.fromEntries(results.filter((result) => result !== null)));
+      setLoadingPrices(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [productSlugs]);
+  const prices = items.map((item) => {
+    const product = item.product ? catalog[item.product.slug] : undefined;
+    const variant = product?.variants.find((entry) => entry.id === item.product?.variantId);
+    return calculatePrice(
+      product
+        ? variant
+          ? {
+              basePrice: product.basePrice,
+              priceAdjustment: variant.priceAdjustment,
+              pricingTiers: product.pricingTiers,
+            }
+          : undefined
+        : item.product?.pricing,
+      item.quantity
+    );
+  });
+  const subtotal =
+    prices.reduce((sum, price) => sum + Math.round((price?.total ?? 0) * 100), 0) / 100;
+  const unpriced = prices.filter((price) => price === null).length;
   return (
     <>
       <Header />
@@ -51,13 +101,28 @@ export default function OrderPage() {
                       type="button"
                       onClick={() => remove(item.id)}
                       className="text-xs underline"
-                      aria-label={`Remove design ${index + 1}`}
+                      aria-label={`Remove ${item.product?.name ?? `design ${index + 1}`}`}
                     >
                       Remove
                     </button>
                   </div>
+                  {item.logos && (
+                    <WristbandArtwork
+                      material={item.material}
+                      color={item.color}
+                      ink={item.ink}
+                      message={item.message}
+                      subtitle={item.subtitle}
+                      font={item.font}
+                      logos={item.logos}
+                    />
+                  )}
                   <div
-                    className="flex min-h-24 items-center justify-center gap-4 overflow-hidden rounded-lg border border-black/10 px-5 py-4"
+                    className={
+                      item.logos
+                        ? 'hidden'
+                        : 'flex min-h-24 items-center justify-center gap-4 overflow-hidden rounded-lg border border-black/10 px-5 py-4'
+                    }
                     style={{ backgroundColor: item.color, color: item.ink, fontFamily: item.font }}
                   >
                     {item.logo && (
@@ -77,7 +142,9 @@ export default function OrderPage() {
                       </svg>
                     )}
                     <div className="min-w-0 text-center">
-                      <p className="break-words text-lg font-black">{item.message}</p>
+                      <p className="break-words text-lg font-black">
+                        {item.product ? 'Plain wristband' : item.message}
+                      </p>
                       <p className="mt-1 break-words text-xs tracking-widest">{item.subtitle}</p>
                     </div>
                   </div>
@@ -91,12 +158,33 @@ export default function OrderPage() {
                         key={`${item.id}-${item.quantity}`}
                         type="number"
                         min="1"
-                        max="100000"
+                        max={
+                          item.product
+                            ? Math.min(
+                                100000,
+                                Math.max(
+                                  0,
+                                  item.product.availableQuantity -
+                                    items
+                                      .filter(
+                                        (line) =>
+                                          line.id !== item.id &&
+                                          line.product?.variantId === item.product?.variantId
+                                      )
+                                      .reduce((sum, line) => sum + line.quantity, 0)
+                                )
+                              )
+                            : 100000
+                        }
                         step="1"
                         defaultValue={item.quantity}
                         onBlur={(event) => {
                           const value = Number(event.target.value);
-                          if (Number.isInteger(value) && value >= 1 && value <= 100000)
+                          if (
+                            Number.isInteger(value) &&
+                            value >= 1 &&
+                            value <= Number(event.target.max)
+                          )
                             updateQuantity(item.id, value);
                           else event.target.value = String(item.quantity);
                         }}
@@ -104,17 +192,41 @@ export default function OrderPage() {
                       />
                     </label>
                   </div>
+                  <div
+                    className="mt-5 flex flex-wrap justify-between gap-3 border-t border-neutral-100 pt-4 text-sm"
+                    aria-live="polite"
+                  >
+                    {prices[index] ? (
+                      <>
+                        <span className="text-neutral-500">
+                          {formatOrderPrice(prices[index]!.unit)} per unit
+                        </span>
+                        <strong>{formatOrderPrice(prices[index]!.total)}</strong>
+                      </>
+                    ) : (
+                      <span className="text-neutral-500">
+                        {item.product
+                          ? loadingPrices
+                            ? 'Loading price…'
+                            : 'Price unavailable — to be confirmed'
+                          : 'Custom design — quote required'}
+                      </span>
+                    )}
+                  </div>
                 </article>
               ))}
               <Link href="/custom" className="button-secondary w-full">
                 + Add another design
               </Link>
+              <Link href="/wristbands" className="button-secondary w-full">
+                + Add wristbands
+              </Link>
             </div>
-            <aside className="rounded-xl bg-white p-6 lg:sticky lg:top-6">
+            <aside className="rounded-xl bg-white p-6 lg:sticky lg:top-24">
               <h2 className="text-xl font-black">Order summary</h2>
               <dl className="mt-6 space-y-4 text-sm">
                 <div className="flex justify-between">
-                  <dt>Designs</dt>
+                  <dt>Order items</dt>
                   <dd>{items.length}</dd>
                 </div>
                 <div className="flex justify-between">
@@ -122,6 +234,35 @@ export default function OrderPage() {
                   <dd>{items.reduce((sum, item) => sum + item.quantity, 0).toLocaleString()}</dd>
                 </div>
               </dl>
+              <div
+                className="mt-6 space-y-3 border-t border-neutral-200 pt-5 text-sm"
+                aria-live="polite"
+              >
+                <div className="flex justify-between gap-3 font-bold">
+                  <span>{unpriced ? 'Priced items subtotal' : 'Estimated subtotal'}</span>
+                  <span>
+                    {prices.some(Boolean)
+                      ? formatOrderPrice(subtotal)
+                      : loadingPrices
+                        ? 'Loading…'
+                        : 'Quote required'}
+                  </span>
+                </div>
+                {unpriced > 0 && (
+                  <p className="text-xs leading-5 text-amber-800">
+                    {unpriced} {unpriced === 1 ? 'item is' : 'items are'} awaiting pricing and
+                    excluded from this subtotal.
+                  </p>
+                )}
+                <div className="flex justify-between gap-3 text-neutral-500">
+                  <span>Delivery</span>
+                  <span>To be confirmed</span>
+                </div>
+                <p className="text-xs leading-5 text-neutral-500">
+                  Bulk discounts update when quantities change. Final pricing, requested colours and
+                  delivery will be confirmed through WhatsApp.
+                </p>
+              </div>
               <p className="mt-6 border-t pt-5 text-xs leading-5 text-neutral-500">
                 Your designs are saved in this browser, ready for when you place your order.
               </p>

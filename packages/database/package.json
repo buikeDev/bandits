@@ -1,7 +1,7 @@
 {
   "name": "@bandit/database",
   "version": "0.1.0",
-  "description": "BANDIT database schema and utilities",
+  "description": "BAND-IT database schema and utilities",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

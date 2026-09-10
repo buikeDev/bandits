@@ -1,6 +1,6 @@
 Read AGENTS.md before making any changes.
 
-We are building BANDIT, an ecommerce and fulfilment platform.
+We are building BAND-IT, an ecommerce and fulfilment platform.
 
 The primary business is wristband sales:
 

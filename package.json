@@ -1,7 +1,7 @@
 {
   "name": "bandit",
   "version": "0.1.0",
-  "description": "BANDIT - Ecommerce and fulfilment platform for wristbands",
+  "description": "BAND-IT - Ecommerce and fulfilment platform for wristbands",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.0.0",
