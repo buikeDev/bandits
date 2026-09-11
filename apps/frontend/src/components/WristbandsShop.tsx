@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 const wristbands = [
   ['TYVEK', 'Plain & Printed', 'tyvek-standard'],
   ['VINYL / PLASTIC', 'Plain & Printed', 'vinyl-plastic-standard'],
@@ -18,20 +20,21 @@ export default function WristbandsShop() {
           </a>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {wristbands.map(([name, variant, slug], index) => (
+          {wristbands.map(([name, variant, slug]) => (
             <a
               key={name}
               href={`/wristbands/${slug}`}
               className="group overflow-hidden rounded-md border border-neutral-200 bg-white"
             >
-              <div
-                className="aspect-[1.18] bg-cover bg-no-repeat transition-transform duration-300 group-hover:scale-[1.025]"
-                style={{
-                  backgroundImage: "url('/images/wristband-categories.png')",
-                  backgroundSize: '600% 100%',
-                  backgroundPosition: `${index * 20}% center`,
-                }}
-              />
+              <div className="relative aspect-[1.18] overflow-hidden">
+                <Image
+                  src={`/images/categories/${slug.replace('-standard', '')}.png`}
+                  alt={`${name.toLowerCase()} wristband`}
+                  fill
+                  sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 17vw"
+                  className="object-cover transition-transform duration-300 group-hover:scale-[1.025] motion-reduce:transform-none motion-reduce:transition-none"
+                />
+              </div>
               <div className="p-3">
                 <p className="text-[11px] font-black">{name}</p>
                 <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-neutral-600">
