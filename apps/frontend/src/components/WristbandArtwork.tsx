@@ -18,6 +18,7 @@ type Props = {
   onEditStart?: () => void;
   onEditEnd?: () => void;
   guides?: boolean;
+  showBrand?: boolean;
 };
 export default function WristbandArtwork(p: Props) {
   const svg = useRef<SVGSVGElement>(null);
@@ -66,15 +67,17 @@ export default function WristbandArtwork(p: Props) {
             strokeOpacity=".25"
             strokeDasharray="3 4"
           />
-          <BrandLogo
-            x={28}
-            y={109}
-            width={50}
-            height={12}
-            color={p.ink}
-            tagline={false}
-            className=""
-          />
+          {p.showBrand !== false && (
+            <BrandLogo
+              x={28}
+              y={109}
+              width={50}
+              height={12}
+              color={p.ink}
+              tagline={false}
+              className=""
+            />
+          )}
         </>
       )}
       {p.guides && p.onChange && (
