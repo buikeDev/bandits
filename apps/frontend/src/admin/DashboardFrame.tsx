@@ -121,9 +121,12 @@ export default function DashboardFrame({
               Search
             </button>
           </form>
-          <details className="relative shrink-0">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-full bg-yellow-300 text-sm font-bold">
+          <details className="admin-profile relative shrink-0">
+            <summary
+              aria-label="Staff account menu"
+              className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-lg p-1"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-yellow-300 text-sm font-bold">
                 {staff?.name
                   .split(' ')
                   .map((n) => n[0])
@@ -131,15 +134,15 @@ export default function DashboardFrame({
                   .slice(0, 2)
                   .toUpperCase() || '…'}
               </span>
-              <span className="hidden text-sm sm:block">
-                <strong className="block">{staff?.name || 'Staff workspace'}</strong>
+              <span className="hidden min-w-0 max-w-40 text-sm sm:block">
+                <strong className="block truncate">{staff?.name || 'Staff workspace'}</strong>
                 <span className="text-xs text-slate-500">
                   {staff?.role === 'ADMIN' ? 'Administrator' : 'Staff'}
                 </span>
               </span>
               <span aria-hidden="true">⌄</span>
             </summary>
-            <div className="absolute right-0 z-20 mt-3 w-52 rounded-xl border bg-white p-2 shadow-lg">
+            <div className="absolute right-0 z-40 mt-3 w-52 max-w-[calc(100vw-2rem)] rounded-xl border bg-white p-2 shadow-lg">
               <Link href="/admin/security" className="admin-nav-link">
                 Account security
               </Link>
