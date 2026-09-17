@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { apiRequest } from '@/auth/api';
+import Link from 'next/link';
+import { label } from '@/admin/api';
 
 type History = {
   page: number;
@@ -73,11 +75,7 @@ export default function CustomerOrders() {
                 <div className="flex flex-wrap justify-between gap-3">
                   <p className="break-all text-xs font-bold">{order.reference}</p>
                   <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs">
-                    {order.status === 'COMPLETED'
-                      ? 'Completed'
-                      : order.status === 'CANCELLED'
-                        ? 'Cancelled'
-                        : 'Awaiting confirmation'}
+                    {label(order.status)}
                   </span>
                 </div>
                 <p className="mt-3 text-sm text-neutral-600">
@@ -92,6 +90,12 @@ export default function CustomerOrders() {
                     ? 'priced subtotal · additional quote required'
                     : 'items total'}
                 </p>
+                <Link
+                  href={`/account/orders/${order.reference}`}
+                  className="my-3 inline-flex min-h-11 items-center text-sm font-semibold underline"
+                >
+                  View saved design and progress
+                </Link>
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm font-semibold">
                     View order details

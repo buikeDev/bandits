@@ -35,7 +35,22 @@ function response(order: SavedOrder, hash: string): WhatsAppOrderDto {
       409,
       'ORDER_CHANGED'
     );
-  return { reference: order.reference, message: order.message, phone: '2349137132516' };
+  let message = order.message;
+  // Enable only after the staff dashboard and its migration are deployed.
+  if (process.env.ADMIN_DASHBOARD_URL) {
+    const url = new URL(process.env.ADMIN_DASHBOARD_URL);
+    if (
+      !['https:', 'http:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash
+    )
+      throw new AppError('Invalid staff dashboard configuration', 503, 'CONFIGURATION');
+    message += `\n\nStaff order details (sign-in required): ${url.origin}/admin/orders/${encodeURIComponent(order.reference)}`;
+  }
+  return { reference: order.reference, message, phone: '2349137132516' };
 }
 
 export async function prepareOrder(

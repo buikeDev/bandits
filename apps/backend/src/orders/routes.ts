@@ -5,8 +5,18 @@ import { prepareOrder } from './service.js';
 import { customerAuthService } from '../customer-auth/service.js';
 import { readSessionToken } from '../customer-auth/session.js';
 import { z } from 'zod';
+import { orderDetail } from '../admin/orders.js';
 
 export const orderRouter: ExpressRouter = Router();
+orderRouter.get('/mine/:reference', async (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const customer = await customerAuthService.currentCustomer(readSessionToken(req));
+    res.json({ success: true, data: await orderDetail(req.params.reference, customer.id) });
+  } catch (error) {
+    next(error);
+  }
+});
 orderRouter.get('/mine', async (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   try {

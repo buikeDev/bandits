@@ -14,12 +14,12 @@ datasource db {
 
 // User model - registered users of the platform
 model CustomerAccount {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String            @id @default(cuid())
+  email        String            @unique
   name         String
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   sessions     CustomerSession[]
   orders       OrderEnquiry[]
 
@@ -39,14 +39,15 @@ model CustomerSession {
 }
 
 model StaffAccount {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  sessions     StaffSession[]
+  id           String         @id @default(cuid())
+  email        String         @unique
   name         String
   passwordHash String
-  role         StaffRole @default(STAFF)
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  role         StaffRole      @default(STAFF)
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([email])
   @@index([role, isActive])
@@ -94,12 +95,12 @@ model Product {
   categoryId           String
   category             Category              @relation(fields: [categoryId], references: [id])
   brandId              String?
-  brand                 Brand?                @relation(fields: [brandId], references: [id])
-  variants              ProductVariant[]
-  pricingTiers          ProductPricingTier[]
+  brand                Brand?                @relation(fields: [brandId], references: [id])
+  variants             ProductVariant[]
+  pricingTiers         ProductPricingTier[]
   customizationOptions CustomizationOption[]
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@index([categoryId, isActive])
   @@index([kind, isActive])
@@ -135,11 +136,11 @@ model Inventory {
 }
 
 model ProductPricingTier {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   minQuantity Int
-  unitPrice   Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
 
   @@unique([productId, minQuantity])
   @@index([productId])
@@ -171,21 +172,114 @@ enum CustomizationType {
 
 // Immutable enquiry snapshot. Opening WhatsApp is not proof of sending or payment.
 model OrderEnquiry {
+  workflow      OrderWorkflow?
   customerId    String?
   customer      CustomerAccount? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  @@index([customerId, createdAt])
-  id            String   @id @default(cuid())
-  requestId     String   @unique
+  id            String           @id @default(cuid())
+  requestId     String           @unique
   requestHash   String
-  reference     String   @unique
-  status        String   @default("AWAITING_WHATSAPP")
-  currency      String   @default("NGN")
+  reference     String           @unique
+  status        String           @default("AWAITING_WHATSAPP")
+  currency      String           @default("NGN")
   snapshot      Json
   message       String
   totalQuantity Int
   subtotalMinor BigInt
   quoteRequired Boolean
-  createdAt     DateTime @default(now())
+  createdAt     DateTime         @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([createdAt])
+}
+
+model StaffSession {
+  id        String       @id @default(cuid())
+  tokenHash String       @unique
+  staffId   String
+  staff     StaffAccount @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+
+  @@index([staffId])
+}
+
+model OrderWorkflow {
+  id              String             @id @default(cuid())
+  orderId         String             @unique
+  order           OrderEnquiry       @relation(fields: [orderId], references: [id])
+  version         Int                @default(0)
+  contactName     String             @default("")
+  contactPhone    String             @default("")
+  deliveryAddress String             @default("")
+  deliveryMethod  String             @default("COLLECTION")
+  tracking        String             @default("")
+  acceptedQuoteId String?
+  quotes          OrderQuote[]
+  payments        OrderPayment[]
+  events          OrderEvent[]
+  reservations    StockReservation[]
+  updatedAt       DateTime           @updatedAt
+}
+
+model OrderQuote {
+  id            String        @id @default(cuid())
+  workflowId    String
+  workflow      OrderWorkflow @relation(fields: [workflowId], references: [id])
+  lines         Json
+  printingMinor BigInt
+  deliveryMinor BigInt
+  totalMinor    BigInt
+  note          String
+  staffId       String
+  createdAt     DateTime      @default(now())
+
+  @@index([workflowId, createdAt])
+}
+
+model OrderPayment {
+  id          String        @id @default(cuid())
+  workflowId  String
+  workflow    OrderWorkflow @relation(fields: [workflowId], references: [id])
+  amountMinor BigInt
+  kind        String
+  reference   String
+  staffId     String
+  createdAt   DateTime      @default(now())
+
+  @@unique([workflowId, reference])
+}
+
+model OrderEvent {
+  id         String        @id @default(cuid())
+  workflowId String
+  workflow   OrderWorkflow @relation(fields: [workflowId], references: [id])
+  staffId    String
+  staffName  String
+  action     String
+  note       String
+  createdAt  DateTime      @default(now())
+
+  @@index([workflowId, createdAt])
+}
+
+model StockReservation {
+  id         String        @id @default(cuid())
+  workflowId String
+  workflow   OrderWorkflow @relation(fields: [workflowId], references: [id])
+  variantId  String
+  quantity   Int
+  state      String        @default("RESERVED")
+
+  @@unique([workflowId, variantId])
+}
+
+model AdminAudit {
+  id        String   @id @default(cuid())
+  staffId   String
+  action    String
+  targetId  String
+  details   Json
+  createdAt DateTime @default(now())
+
   @@index([createdAt])
 }
 

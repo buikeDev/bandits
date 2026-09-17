@@ -1,0 +1,66 @@
+import type { LogoLayer } from '@/components/logo-layout';
+export type Staff = {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'STAFF';
+  isActive?: boolean;
+};
+export type SavedLine = {
+  id: string;
+  name: string;
+  material: string;
+  color: string;
+  colorName: string;
+  ink: string;
+  message: string;
+  subtitle: string;
+  font: string;
+  logos?: LogoLayer[];
+  logo: string;
+  quantity: number;
+  unitMinor: number | null;
+  totalMinor: number | null;
+  requestedColor: boolean;
+};
+export type Quote = {
+  id: string;
+  lines: { name: string; quantity: number; unitMinor: number; totalMinor: number }[];
+  printingMinor: string;
+  deliveryMinor: string;
+  totalMinor: string;
+  note?: string;
+  createdAt?: string;
+};
+export type Order = {
+  reference: string;
+  status: string;
+  createdAt: string;
+  subtotalMinor: string;
+  totalQuantity: number;
+  quoteRequired: boolean;
+  snapshot: { items: SavedLine[] };
+  message: string;
+  customer: { name: string; email: string } | null;
+  paymentStatus: string;
+  paidMinor: string;
+  workflow: null | {
+    version: number;
+    contactName: string;
+    contactPhone: string;
+    deliveryAddress: string;
+    deliveryMethod: string;
+    tracking: string;
+    acceptedQuoteId: string | null;
+    quotes: Quote[];
+    payments: {
+      id: string;
+      kind: string;
+      amountMinor: string;
+      reference: string;
+      createdAt: string;
+    }[];
+    events: { id: string; staffName: string; action: string; note: string; createdAt: string }[];
+    reservations: { id: string; variantId: string; quantity: number; state: string }[];
+  };
+};

@@ -63,6 +63,27 @@ function setup() {
   };
 }
 
+test('staff links are configurable and do not rewrite the saved message', async () => {
+  const previousUrl = process.env.ADMIN_DASHBOARD_URL;
+  try {
+    process.env.ADMIN_DASHBOARD_URL = 'https://staff.example.test';
+    const { saved, dependencies } = setup();
+    const input = { requestId: randomUUID(), items: [line] };
+    const result = await prepareOrder(input, dependencies);
+    assert.ok(
+      result.message.includes(`https://staff.example.test/admin/orders/${result.reference}`)
+    );
+    assert.ok(![...saved.values()][0].message.includes('staff.example.test'));
+    delete process.env.ADMIN_DASHBOARD_URL;
+    const retry = await prepareOrder(input, dependencies);
+    assert.equal(retry.reference, result.reference);
+    assert.ok(!retry.message.includes('staff.example.test'));
+  } finally {
+    if (previousUrl === undefined) delete process.env.ADMIN_DASHBOARD_URL;
+    else process.env.ADMIN_DASHBOARD_URL = previousUrl;
+  }
+});
+
 test('checkout binds the snapshot and retry token to the authenticated customer', async () => {
   const { saved, dependencies } = setup();
   const input = { requestId: randomUUID(), items: [line] };
