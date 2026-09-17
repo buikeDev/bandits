@@ -16,6 +16,14 @@ No production migration or admin credentials are automatically applied by this i
 
 ## Verification
 
+### Dashboard reference update
+
+The shared admin layout now uses a fixed desktop sidebar, mobile navigation dialog, order search and a profile menu. The overview uses pastel status cards, financial summaries, quick actions, a 7/30-day activity chart and six recent updates. Links respect existing staff permissions.
+
+`GET /api/admin/insights?days=7` (or `30`) requires a staff session. Chart days use Africa/Lagos; enquiries count creation dates, while confirmations and ready events count the recorded status transitions in the existing activity log. Historical transitions not recorded in that log cannot be reconstructed. Summary cards show current/all-time figures independently of the chart period. Recent activity uses recorded enquiries, order events, and admin-only audit summaries, without exposing internal notes in the feed.
+
+Deploy both frontend and backend for this update. No new database migration is required beyond the existing admin operations migration.
+
 - Backend TypeScript build and ESLint passed.
 - Production Next.js build, type checking and lint passed, including all admin and customer-detail routes.
 - Backend test suite: 30 passed, 4 existing database integration tests skipped. Admin tests cover role boundaries, expired/inactive sessions, ownership filtering, immutable accepted quotes, stale versions, reservations, cancellation, collection, overpayment/refund limits and duplicate references. They use controlled repository fixtures, not live Supabase writes.

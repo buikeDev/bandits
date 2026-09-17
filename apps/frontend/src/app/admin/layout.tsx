@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import AdminShell from '@/admin/AdminShell';
+import '@/admin/admin.css';
 export const metadata: Metadata = {
   title: 'BAND-IT Staff',
   robots: { index: false, follow: false },

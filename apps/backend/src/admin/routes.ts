@@ -20,6 +20,7 @@ import {
 } from './auth.js';
 import { jsonSafe, orderDetail, updateOrder } from './orders.js';
 import { statuses } from './schema.js';
+import { insights } from './insights.js';
 
 export const adminRouter: ExpressRouter = Router();
 const route =
@@ -36,6 +37,18 @@ adminRouter.use((_req, res, next) => {
   next();
 });
 adminRouter.use(protectWrite);
+adminRouter.get(
+  '/insights',
+  route(async (req) => {
+    const staff = await currentStaff(req);
+    const days = z.coerce
+      .number()
+      .refine((value) => value === 7 || value === 30)
+      .default(7)
+      .parse(req.query.days);
+    return insights(days, staff.role === 'ADMIN');
+  })
+);
 adminRouter.post(
   '/login',
   limitLogin,
