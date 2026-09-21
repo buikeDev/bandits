@@ -69,7 +69,7 @@ export default function Overview() {
     outstandingMinor: string;
   }>('/overview');
   const actions: { href: string; title: string; icon: IconName }[] = [
-    { href: '/admin/orders?status=AWAITING_WHATSAPP', title: 'Prepare quote', icon: 'quote' },
+    { href: '/admin/orders?status=AWAITING_WHATSAPP', title: 'Review orders', icon: 'quote' },
     { href: '/admin/orders', title: 'View orders', icon: 'orders' },
     ...(staff?.role === 'ADMIN'
       ? [
@@ -133,16 +133,16 @@ export default function Overview() {
           <div className="mt-4 grid gap-4 xl:grid-cols-3">
             {[
               {
-                title: 'Enquiries awaiting a quote',
+                title: 'Orders awaiting confirmation',
                 value: String(data.needsQuote),
                 icon: 'quote' as const,
-                detail: 'New enquiries without a prepared quote.',
+                detail: 'Review artwork and confirm stock availability.',
               },
               {
-                title: 'Outstanding accepted balances',
+                title: 'Outstanding order balances',
                 value: money(data.outstandingMinor),
                 icon: 'wallet' as const,
-                detail: 'Excludes cancelled orders and unaccepted quotes.',
+                detail: 'Excludes cancelled orders; pending delivery fees are not included.',
               },
               {
                 title: 'Net payments recorded · all time',
@@ -206,7 +206,7 @@ export default function Overview() {
               <div>
                 <h2 className="font-bold">Keep things moving</h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
-                  Review enquiries, agree a quote and prepare the next order.
+                  Review artwork, verify payments and prepare the next order.
                 </p>
               </div>
             </Link>

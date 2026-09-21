@@ -10,6 +10,8 @@ export const jsonSafe = <T>(value: T): unknown =>
 export function snapshotLines(snapshot: Prisma.JsonValue): OrderLine[] {
   return (snapshot as unknown as { items: OrderLine[] }).items;
 }
+export const calculatedOrder = (snapshot: Prisma.JsonValue) =>
+  (snapshot as { version?: number })?.version === 2;
 const conflict = () =>
   new AppError('This record changed. Refresh before saving again.', 409, 'CONFLICT');
 export async function orderDetail(reference: string, customerId?: string) {
@@ -17,7 +19,16 @@ export async function orderDetail(reference: string, customerId?: string) {
   if (!row) throw new AppError('Order not found', 404, 'NOT_FOUND');
   const workflow = row.workflow;
   const quote = workflow?.quotes.find((q) => q.id === workflow.acceptedQuoteId);
-  const payment = paymentState(quote?.totalMinor ?? null, workflow?.payments ?? []);
+  const calculated = calculatedOrder(row.snapshot);
+  const deliveryMinor =
+    workflow?.deliveryMethod === 'COLLECTION' ? 0n : (workflow?.deliveryMinor ?? null);
+  const totalMinor = calculated
+    ? row.subtotalMinor + (deliveryMinor ?? 0n)
+    : (quote?.totalMinor ?? null);
+  const payment = paymentState(
+    calculated && deliveryMinor === null ? null : totalMinor,
+    workflow?.payments ?? []
+  );
   const common = {
     reference: row.reference,
     status: row.status,
@@ -27,6 +38,9 @@ export async function orderDetail(reference: string, customerId?: string) {
     subtotalMinor: row.subtotalMinor,
     quoteRequired: row.quoteRequired,
     ...payment,
+    calculated,
+    totalMinor,
+    deliveryMinor,
   };
   if (customerId)
     return jsonSafe({
@@ -63,11 +77,51 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
       });
       if (!locked.count) throw conflict();
       const items = snapshotLines(order.snapshot);
+      const calculated = calculatedOrder(order.snapshot);
+      const accepted = workflow.quotes.find((q) => q.id === workflow.acceptedQuoteId);
+      const deliveryMinor = workflow.deliveryMethod === 'COLLECTION' ? 0n : workflow.deliveryMinor;
+      const totalMinor = calculated
+        ? order.subtotalMinor + (deliveryMinor ?? 0n)
+        : (accepted?.totalMinor ?? null);
       let note = '';
+      if (action.action === 'deliveryFee') {
+        if (!calculated || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status))
+          throw new AppError('Delivery fee is locked', 409, 'LOCKED');
+        if (workflow.deliveryMethod !== 'DELIVERY')
+          throw new AppError('Choose delivery first', 400, 'DELIVERY_REQUIRED');
+        if (order.subtotalMinor + BigInt(action.deliveryMinor) > BigInt(Number.MAX_SAFE_INTEGER))
+          throw new AppError('Order total is too large', 400, 'INVALID_TOTAL');
+        if (
+          BigInt(paymentState(totalMinor, workflow.payments).paidMinor) >
+          order.subtotalMinor + BigInt(action.deliveryMinor)
+        )
+          throw new AppError('Refund the excess before reducing delivery', 409, 'INVALID_PAYMENT');
+        await tx.orderWorkflow.update({
+          where: { id: workflow.id },
+          data: { deliveryMinor: BigInt(action.deliveryMinor) },
+        });
+        note = 'Delivery charge: ' + action.deliveryMinor / 100 + ' NGN. ' + action.note;
+      }
+      if (calculated && ['quote', 'acceptQuote'].includes(action.action))
+        throw new AppError(
+          'This order uses saved calculated prices, not quotes',
+          409,
+          'CALCULATED_ORDER'
+        );
       if (action.action === 'note') note = action.note;
       if (action.action === 'contact') {
         if (['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status))
           throw new AppError('Delivery details are locked for this order', 409, 'LOCKED');
+        if (
+          calculated &&
+          action.deliveryMethod !== workflow.deliveryMethod &&
+          workflow.payments.length
+        )
+          throw new AppError(
+            'Delivery method cannot change after payments are recorded',
+            409,
+            'LOCKED'
+          );
         const { action: _action, version: _version, ...data } = action;
         await tx.orderWorkflow.update({ where: { id: workflow.id }, data });
         note = 'Contact and delivery details updated';
@@ -127,15 +181,24 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
         note = `Customer accepted quote: ${action.note}`;
       }
       if (action.action === 'payment') {
-        const quote = workflow.quotes.find((q) => q.id === workflow.acceptedQuoteId);
-        if (!quote)
+        if (
+          calculated &&
+          action.kind === 'PAYMENT' &&
+          (!workflow.contactName || !workflow.contactPhone)
+        )
+          throw new AppError(
+            'Save contact and delivery details before recording payment',
+            409,
+            'CONTACT_REQUIRED'
+          );
+        if (totalMinor === null)
           throw new AppError('Accept a quote before recording payment', 409, 'QUOTE_REQUIRED');
         if (action.kind === 'PAYMENT' && order.status === 'CANCELLED')
           throw new AppError('Cancelled orders cannot receive payments', 409, 'LOCKED');
-        const paid = BigInt(paymentState(quote.totalMinor, workflow.payments).paidMinor);
+        const paid = BigInt(paymentState(totalMinor, workflow.payments).paidMinor);
         if (
           (action.kind === 'REFUND' && BigInt(action.amountMinor) > paid) ||
-          (action.kind === 'PAYMENT' && paid + BigInt(action.amountMinor) > quote.totalMinor)
+          (action.kind === 'PAYMENT' && paid + BigInt(action.amountMinor) > totalMinor)
         )
           throw new AppError(
             'Amount exceeds the refundable balance or amount due',
@@ -156,8 +219,14 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
       if (action.action === 'status') {
         if (!transitions[order.status]?.includes(action.status))
           throw new AppError('This status transition is not allowed', 409, 'INVALID_STATUS');
+        if (calculated && action.status === 'DISPATCHED' && deliveryMinor === null)
+          throw new AppError(
+            'Confirm the delivery charge before dispatch',
+            409,
+            'DELIVERY_REQUIRED'
+          );
         if (action.status === 'CONFIRMED') {
-          if (!workflow.acceptedQuoteId)
+          if (!calculated && !workflow.acceptedQuoteId)
             throw new AppError('Prepare and accept the final quote first', 409, 'QUOTE_REQUIRED');
           if (
             !workflow.contactName ||
@@ -218,11 +287,13 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
               409,
               'INVALID_STATUS'
             );
-          const quote = workflow.quotes.find((q) => q.id === workflow.acceptedQuoteId);
-          if (
-            paymentState(quote?.totalMinor ?? null, workflow.payments).paymentStatus !== 'PAID' &&
-            quote?.totalMinor !== 0n
-          )
+          if (calculated && deliveryMinor === null)
+            throw new AppError(
+              'Confirm the delivery charge before completion',
+              409,
+              'DELIVERY_REQUIRED'
+            );
+          if (paymentState(totalMinor, workflow.payments).paymentStatus !== 'PAID')
             throw new AppError('Record full payment before completion', 409, 'PAYMENT_REQUIRED');
         }
         if (['CANCELLED', 'DISPATCHED', 'COMPLETED'].includes(action.status)) {

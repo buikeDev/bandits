@@ -90,7 +90,7 @@ export default function Orders() {
             value="true"
             defaultChecked={filters.get('custom') === 'true'}
           />
-          Quote required / custom enquiries
+          Legacy orders requiring a quote
         </label>
       </form>
       {error ? (

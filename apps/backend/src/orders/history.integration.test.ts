@@ -1,3 +1,4 @@
+import { createTestStock, removeTestStock } from './test-stock.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
@@ -38,6 +39,7 @@ test(
         ids.push(customer.id);
         cookies.push(`${SESSION_COOKIE}=${token}`);
       }
+      const stock = await createTestStock(requestId);
       const result = await fetch(origin, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: cookies[0] },
@@ -47,6 +49,7 @@ test(
           items: [
             {
               id: 'test',
+              product: stock,
               material: 'Tyvek',
               colorName: 'Yellow',
               color: '#ffcc00',
@@ -73,6 +76,7 @@ test(
       assert.equal(otherBody.data.items.length, 0);
     } finally {
       await prisma.orderEnquiry.deleteMany({ where: { requestId } });
+      await removeTestStock(requestId);
       await prisma.customerAccount.deleteMany({ where: { id: { in: ids } } });
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))

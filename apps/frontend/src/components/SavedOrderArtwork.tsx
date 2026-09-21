@@ -57,6 +57,12 @@ export default function SavedOrderArtwork({ items }: { items: SavedLine[] }) {
                 {item.material} · {item.colorName} · {item.quantity.toLocaleString()} units
               </p>
               <p className="text-sm text-neutral-600">
+                {item.materialUnitMinor !== undefined && (
+                  <>
+                    Material: {money(item.materialUnitMinor)} + customisation:{' '}
+                    {money(item.customizationUnitMinor ?? 0)} per band.{' '}
+                  </>
+                )}
                 Unit: {item.unitMinor === null ? 'Quote required' : money(item.unitMinor)} ·
                 Subtotal: {item.totalMinor === null ? 'Quote required' : money(item.totalMinor)}
               </p>

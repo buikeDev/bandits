@@ -21,7 +21,7 @@ export default function BulkOrders() {
               Get special pricing for events, organizations and businesses.
             </p>
             <a href="/bulk" className="button-primary mt-5 w-fit">
-              Get a Bulk Quote
+              Order in bulk
             </a>
           </div>
           <div className="flex flex-col justify-center gap-5 border-l border-neutral-200 px-8 py-9">

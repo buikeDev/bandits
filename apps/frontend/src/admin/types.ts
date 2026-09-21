@@ -19,6 +19,8 @@ export type SavedLine = {
   logos?: LogoLayer[];
   logo: string;
   quantity: number;
+  materialUnitMinor?: number;
+  customizationUnitMinor?: number;
   unitMinor: number | null;
   totalMinor: number | null;
   requestedColor: boolean;
@@ -33,6 +35,9 @@ export type Quote = {
   createdAt?: string;
 };
 export type Order = {
+  calculated: boolean;
+  totalMinor: string | null;
+  deliveryMinor: string | null;
   reference: string;
   status: string;
   createdAt: string;

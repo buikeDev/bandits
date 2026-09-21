@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export * from './wristband-colors.js';
 
 export interface WhatsAppOrderDto {
   reference: string;
@@ -20,12 +21,22 @@ export interface ApiResponse<T> {
 
 export const customerRegistrationSchema = z.object({
   name: z.string().trim().min(2).max(100),
-  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(254)
+    .transform((value) => value.toLowerCase()),
   password: z.string().min(8).max(128),
 });
 
 export const customerLoginSchema = z.object({
-  email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(254)
+    .transform((value) => value.toLowerCase()),
   password: z.string().min(1).max(128),
 });
 
@@ -47,6 +58,7 @@ export const productListQuerySchema = z.object({
   search: z.string().trim().max(100).optional(),
   category: z.string().trim().max(80).optional(),
   kind: z.enum(['WRISTBAND', 'MARKETPLACE']).optional(),
+  featured: z.enum(['true']).optional(),
   sort: z.enum(['featured', 'newest', 'price-asc', 'price-desc', 'name']).default('featured'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(48).default(12),
@@ -70,6 +82,7 @@ export interface ProductSummaryDto {
   basePrice: number;
   compareAtPrice: number | null;
   imageUrl: string;
+  images?: string[];
   isFeatured: boolean;
   category: Pick<CategoryDto, 'name' | 'slug'>;
   brand: { name: string; slug: string } | null;
@@ -85,6 +98,7 @@ export interface ProductDetailDto extends ProductSummaryDto {
     material: string | null;
     size: string | null;
     priceAdjustment: number;
+    imageUrl?: string | null;
     isCustomizationEnabled: boolean;
     availableQuantity: number;
   }>;

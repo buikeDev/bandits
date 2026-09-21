@@ -1,0 +1,11 @@
+ALTER TABLE "Product" ADD COLUMN "featuredOrder" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "images" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "ProductVariant" ADD COLUMN "imageUrl" TEXT;
+ALTER TABLE "Inventory" ADD COLUMN "lowStockThreshold" INTEGER NOT NULL DEFAULT 100;
+ALTER TABLE "OrderWorkflow" ADD COLUMN "deliveryMinor" BIGINT;
+CREATE TABLE "CommerceSettings" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "customizationFeeMinor" INTEGER NOT NULL DEFAULT 10000,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO "CommerceSettings" ("id") VALUES ('default');

@@ -8,6 +8,7 @@ const image = z
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i);
 export const orderRequestSchema = z.object({
   requestId: z.string().uuid(),
+  expectedSubtotalMinor: z.number().int().nonnegative().optional(),
   items: z
     .array(
       z.object({
@@ -45,6 +46,8 @@ export const orderRequestSchema = z.object({
 });
 export type OrderRequest = z.infer<typeof orderRequestSchema>;
 export type OrderLine = OrderRequest['items'][number] & {
+  materialUnitMinor?: number;
+  customizationUnitMinor?: number;
   name: string;
   requestedColor: boolean;
   unitMinor: number | null;

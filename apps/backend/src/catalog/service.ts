@@ -19,6 +19,7 @@ const summary = (product: CatalogProduct): ProductSummaryDto => ({
   basePrice: Number(product.basePrice),
   compareAtPrice: product.compareAtPrice ? Number(product.compareAtPrice) : null,
   imageUrl: product.imageUrl,
+  images: product.images,
   isFeatured: product.isFeatured,
   category: { name: product.category.name, slug: product.category.slug },
   brand: product.brand ? { name: product.brand.name, slug: product.brand.slug } : null,
@@ -50,6 +51,7 @@ export const catalogService = {
         material: variant.material,
         size: variant.size,
         priceAdjustment: Number(variant.priceAdjustment),
+        imageUrl: variant.imageUrl,
         isCustomizationEnabled: variant.isCustomizationEnabled,
         availableQuantity: Math.max(
           0,

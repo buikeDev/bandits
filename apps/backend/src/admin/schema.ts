@@ -11,6 +11,12 @@ export const statuses = [
 const minor = z.number().int().min(0).max(100000000000);
 const base = { version: z.number().int().min(0) };
 export const actionSchema = z.discriminatedUnion('action', [
+  z.object({
+    ...base,
+    action: z.literal('deliveryFee'),
+    deliveryMinor: minor,
+    note: z.string().trim().min(1).max(1000),
+  }),
   z.object({ ...base, action: z.literal('note'), note: z.string().trim().min(1).max(3000) }),
   z.object({
     ...base,

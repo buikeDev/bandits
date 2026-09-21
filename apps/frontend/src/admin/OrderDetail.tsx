@@ -228,139 +228,194 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               </button>
             </form>
           </Section>
-          <Section title="Quote & customer agreement">
-            {accepted ? (
-              <>
-                <p className="text-sm text-green-800">Customer acceptance recorded.</p>
-                <QuoteSummary quote={accepted} />
-              </>
-            ) : (
-              <>
+          {order.calculated ? (
+            <Section title="Calculated order price">
+              <p>
+                Items: <strong>{money(order.subtotalMinor)}</strong>
+              </p>
+              <p>
+                Delivery:{' '}
+                {order.deliveryMinor === null ? 'Pending confirmation' : money(order.deliveryMinor)}
+              </p>
+              <p>
+                {order.deliveryMinor === null ? 'Subtotal before delivery' : 'Total'}:{' '}
+                <strong>{money(order.totalMinor ?? order.subtotalMinor)}</strong>
+              </p>
+              {workflow?.deliveryMethod === 'DELIVERY' && (
                 <form
                   className="space-y-3"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const form = new FormData(e.currentTarget);
                     void save({
-                      action: 'quote',
-                      lines: order.snapshot.items.map((_item, i) => ({
-                        unitMinor: minor(form, `unit-${i}`),
-                      })),
-                      printingMinor: minor(form, 'printing'),
+                      action: 'deliveryFee',
                       deliveryMinor: minor(form, 'delivery'),
                       note: form.get('note'),
                     });
                   }}
                 >
-                  {order.snapshot.items.map((item, i) => (
-                    <Field
-                      key={i}
-                      title={`${i + 1}. ${item.name} — unit price (NGN), × ${item.quantity}`}
-                    >
-                      <input
-                        name={`unit-${i}`}
-                        type="number"
-                        min="0"
-                        max="1000000000"
-                        step="0.01"
-                        required
-                        defaultValue={(quote?.lines[i]?.unitMinor ?? item.unitMinor ?? 0) / 100}
-                        className={inputClass}
-                      />
-                    </Field>
-                  ))}
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field title="Printing (NGN)">
-                      <input
-                        name="printing"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={Number(quote?.printingMinor ?? 0) / 100}
-                        className={inputClass}
-                      />
-                    </Field>
-                    <Field title="Delivery (NGN)">
-                      <input
-                        name="delivery"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        required
-                        defaultValue={Number(quote?.deliveryMinor ?? 0) / 100}
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-                  <Field title="Quote note">
-                    <textarea name="note" maxLength={1000} className={inputClass} />
+                  <Field title="Delivery charge (NGN)">
+                    <input
+                      name="delivery"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                      className={inputClass}
+                      defaultValue={
+                        order.deliveryMinor === null ? '' : Number(order.deliveryMinor) / 100
+                      }
+                    />
+                  </Field>
+                  <Field title="Delivery charge record">
+                    <input name="note" required maxLength={1000} className={inputClass} />
                   </Field>
                   <button
-                    disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                    disabled={
+                      busy || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)
+                    }
                     className={buttonClass}
                   >
-                    {quote ? 'Save revised quote' : 'Prepare quote'}
+                    Save delivery charge
                   </button>
                 </form>
-                {quote && (
-                  <div className="space-y-4 border-t pt-4">
-                    <QuoteSummary quote={quote} />
-                    <form
-                      className="space-y-3"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void save({
-                          action: 'acceptQuote',
-                          quoteId: quote.id,
-                          note: new FormData(e.currentTarget).get('note'),
-                        });
-                      }}
-                    >
-                      <Field title="Customer acceptance record">
-                        <textarea
-                          name="note"
-                          placeholder="Who agreed, when, and through which channel?"
+              )}
+            </Section>
+          ) : (
+            <Section title="Legacy quote & customer agreement">
+              {accepted ? (
+                <>
+                  <p className="text-sm text-green-800">Customer acceptance recorded.</p>
+                  <QuoteSummary quote={accepted} />
+                </>
+              ) : (
+                <>
+                  <form
+                    className="space-y-3"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const form = new FormData(e.currentTarget);
+                      void save({
+                        action: 'quote',
+                        lines: order.snapshot.items.map((_item, i) => ({
+                          unitMinor: minor(form, `unit-${i}`),
+                        })),
+                        printingMinor: minor(form, 'printing'),
+                        deliveryMinor: minor(form, 'delivery'),
+                        note: form.get('note'),
+                      });
+                    }}
+                  >
+                    {order.snapshot.items.map((item, i) => (
+                      <Field
+                        key={i}
+                        title={`${i + 1}. ${item.name} — unit price (NGN), × ${item.quantity}`}
+                      >
+                        <input
+                          name={`unit-${i}`}
+                          type="number"
+                          min="0"
+                          max="1000000000"
+                          step="0.01"
                           required
-                          maxLength={1000}
+                          defaultValue={(quote?.lines[i]?.unitMinor ?? item.unitMinor ?? 0) / 100}
                           className={inputClass}
                         />
                       </Field>
-                      <button
-                        disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
-                        className={buttonClass}
-                      >
-                        Record customer acceptance
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </>
-            )}
-            {(workflow?.quotes.length ?? 0) > 1 && (
-              <details>
-                <summary className="cursor-pointer text-sm">Previous quote revisions</summary>
-                <div className="mt-3 space-y-4">
-                  {workflow?.quotes.slice(1).map((q) => (
-                    <div key={q.id} className="border-t pt-3">
-                      <p className="mb-2 text-xs">
-                        {new Date(q.createdAt!).toLocaleString()} · {q.note}
-                      </p>
-                      <QuoteSummary quote={q} />
+                    ))}
+                    <div className="grid grid-cols-2 gap-3">
+                      <Field title="Printing (NGN)">
+                        <input
+                          name="printing"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          defaultValue={Number(quote?.printingMinor ?? 0) / 100}
+                          className={inputClass}
+                        />
+                      </Field>
+                      <Field title="Delivery (NGN)">
+                        <input
+                          name="delivery"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          required
+                          defaultValue={Number(quote?.deliveryMinor ?? 0) / 100}
+                          className={inputClass}
+                        />
+                      </Field>
                     </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </Section>
+                    <Field title="Quote note">
+                      <textarea name="note" maxLength={1000} className={inputClass} />
+                    </Field>
+                    <button
+                      disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                      className={buttonClass}
+                    >
+                      {quote ? 'Save revised quote' : 'Prepare quote'}
+                    </button>
+                  </form>
+                  {quote && (
+                    <div className="space-y-4 border-t pt-4">
+                      <QuoteSummary quote={quote} />
+                      <form
+                        className="space-y-3"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void save({
+                            action: 'acceptQuote',
+                            quoteId: quote.id,
+                            note: new FormData(e.currentTarget).get('note'),
+                          });
+                        }}
+                      >
+                        <Field title="Customer acceptance record">
+                          <textarea
+                            name="note"
+                            placeholder="Who agreed, when, and through which channel?"
+                            required
+                            maxLength={1000}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <button
+                          disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                          className={buttonClass}
+                        >
+                          Record customer acceptance
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </>
+              )}
+              {(workflow?.quotes.length ?? 0) > 1 && (
+                <details>
+                  <summary className="cursor-pointer text-sm">Previous quote revisions</summary>
+                  <div className="mt-3 space-y-4">
+                    {workflow?.quotes.slice(1).map((q) => (
+                      <div key={q.id} className="border-t pt-3">
+                        <p className="mb-2 text-xs">
+                          {new Date(q.createdAt!).toLocaleString()} · {q.note}
+                        </p>
+                        <QuoteSummary quote={q} />
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </Section>
+          )}
           <Section title="Payments">
             <p className="text-sm">
               Net received: <strong>{money(order.paidMinor)}</strong>
-              {accepted && (
+              {order.totalMinor !== null && (
                 <>
                   {' '}
                   · Balance:{' '}
-                  <strong>{money(Number(accepted.totalMinor) - Number(order.paidMinor))}</strong>
+                  <strong>{money(Number(order.totalMinor) - Number(order.paidMinor))}</strong>
                 </>
               )}
             </p>
@@ -405,7 +460,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               <p className="text-xs text-neutral-600">
                 Record only verified receipts or refunds. This does not move money.
               </p>
-              <button disabled={busy || !accepted} className={buttonClass}>
+              <button disabled={busy || order.totalMinor === null} className={buttonClass}>
                 Record transaction
               </button>
             </form>
@@ -454,8 +509,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               <p className="text-sm">This order is {label(order.status)}.</p>
             )}
             <p className="text-xs text-neutral-600">
-              Confirmation reserves listed stock. Custom-only designs and requested colours require
-              manual material checks.
+              Confirmation reserves the selected blank wristband stock for plain and custom orders.
             </p>
             {workflow?.reservations.map((r) => (
               <p key={r.id} className="text-xs">

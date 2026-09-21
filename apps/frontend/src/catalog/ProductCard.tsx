@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { ProductSummaryDto } from '@bandit/shared';
 import Link from 'next/link';
 
@@ -13,10 +14,15 @@ export function ProductCard({ product }: { product: ProductSummaryDto }) {
       href={`/wristbands/${product.slug}`}
       className="overflow-hidden bg-white border rounded-lg group border-neutral-200"
     >
-      <div className="grid aspect-[1.25] place-items-center bg-gradient-to-br from-amber-100 via-white to-blue-100 p-8">
-        <span className="text-lg font-black tracking-tight text-center transition-transform group-hover:scale-105">
-          {product.category.name}
-        </span>
+      <div className="relative aspect-[1.25] bg-neutral-100">
+        <Image
+          src={product.imageUrl}
+          alt={product.name}
+          fill
+          unoptimized
+          className="object-cover"
+          sizes="(max-width: 640px) 100vw, 33vw"
+        />
       </div>
       <div className="p-4">
         <p className="text-[10px] font-bold uppercase text-neutral-500">

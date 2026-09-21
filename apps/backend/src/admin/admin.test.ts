@@ -115,13 +115,22 @@ test('ordinary staff cannot read or mutate catalogue, stock or staff accounts', 
     'Content-Type': 'application/json',
   };
   try {
-    for (const path of ['/products', '/staff'])
+    for (const path of ['/products', '/staff', '/settings', '/categories', '/inventory/v1/history'])
       assert.equal((await fetch(`${origin}${path}`, { headers })).status, 403);
     for (const [method, path] of [
       ['PATCH', '/products/p1'],
       ['PATCH', '/variants/v1'],
       ['POST', '/inventory/v1'],
       ['POST', '/staff'],
+      ['POST', '/products'],
+      ['POST', '/categories'],
+      ['POST', '/products/p1/variants'],
+      ['POST', '/images'],
+      ['POST', '/inventory/v1/receive'],
+      ['PATCH', '/settings'],
+      ['PATCH', '/products/p1/media'],
+      ['PATCH', '/variants/v1/options'],
+      ['PATCH', '/inventory/v1/threshold'],
       ['PATCH', '/staff/s1'],
     ]) {
       assert.equal((await fetch(`${origin}${path}`, { method, headers, body: '{}' })).status, 403);
@@ -192,6 +201,7 @@ function fixture(status = 'AWAITING_WHATSAPP', quantity = 100) {
     contactPhone: '08000000000',
     deliveryAddress: '',
     deliveryMethod: 'COLLECTION',
+    deliveryMinor: null as bigint | null,
     tracking: '',
     acceptedQuoteId: 'q1' as string | null,
     quotes: [{ id: 'q1', totalMinor: 10000n }],
@@ -202,7 +212,9 @@ function fixture(status = 'AWAITING_WHATSAPP', quantity = 100) {
     id: 'order1',
     reference: 'ref',
     status,
+    subtotalMinor: 10000n,
     snapshot: {
+      version: 1,
       items: [
         {
           id: 'line',
@@ -380,4 +392,97 @@ test('duplicate payment references return a conflict', async () => {
     ),
     hasCode('DUPLICATE')
   );
+});
+
+test('calculated orders confirm and take payments without quotes', async () => {
+  const f = fixture();
+  f.order.snapshot.version = 2;
+  f.workflow.acceptedQuoteId = null;
+  f.workflow.quotes = [];
+  await updateOrder(
+    'ref',
+    { action: 'status', version: 0, status: 'CONFIRMED', note: 'Artwork checked' },
+    staff
+  );
+  assert.equal(f.reservations.length, 1);
+  await updateOrder(
+    'ref',
+    {
+      action: 'payment',
+      version: 0,
+      amountMinor: 10000,
+      kind: 'PAYMENT',
+      reference: 'receipt-new',
+    },
+    staff
+  );
+  assert.equal(f.payments.length, 1);
+});
+test('calculated order item prices cannot be overwritten by quotes', async () => {
+  const f = fixture();
+  f.order.snapshot.version = 2;
+  f.workflow.acceptedQuoteId = null;
+  await assert.rejects(
+    updateOrder(
+      'ref',
+      {
+        action: 'quote',
+        version: 0,
+        lines: [{ unitMinor: 1 }],
+        printingMinor: 0,
+        deliveryMinor: 0,
+        note: '',
+      },
+      staff
+    ),
+    hasCode('CALCULATED_ORDER')
+  );
+});
+
+test('calculated delivery orders require a confirmed delivery charge before completion', async () => {
+  const f = fixture('DISPATCHED');
+  f.order.snapshot.version = 2;
+  f.workflow.acceptedQuoteId = null;
+  f.workflow.deliveryMethod = 'DELIVERY';
+  f.workflow.payments = [{ amountMinor: 10000n, kind: 'PAYMENT' }];
+  await assert.rejects(
+    updateOrder(
+      'ref',
+      { action: 'status', version: 0, status: 'COMPLETED', note: 'Delivered' },
+      staff
+    ),
+    hasCode('DELIVERY_REQUIRED')
+  );
+  f.workflow.deliveryMinor = 500n;
+  await assert.rejects(
+    updateOrder(
+      'ref',
+      { action: 'status', version: 0, status: 'COMPLETED', note: 'Delivered' },
+      staff
+    ),
+    hasCode('PAYMENT_REQUIRED')
+  );
+  f.workflow.payments.push({ amountMinor: 500n, kind: 'PAYMENT' });
+  await updateOrder(
+    'ref',
+    { action: 'status', version: 0, status: 'COMPLETED', note: 'Delivered' },
+    staff
+  );
+  assert.equal(f.order.status, 'COMPLETED');
+});
+
+test('calculated orders cannot dispatch with an unknown delivery fee', async () => {
+  const f = fixture('READY');
+  f.order.snapshot.version = 2;
+  f.workflow.deliveryMethod = 'DELIVERY';
+  f.workflow.tracking = 'Courier tracking 12';
+  await assert.rejects(
+    updateOrder(
+      'ref',
+      { action: 'status', version: 0, status: 'DISPATCHED', note: 'Handed over' },
+      staff
+    ),
+    hasCode('DELIVERY_REQUIRED')
+  );
+  assert.equal(f.order.status, 'READY');
 });

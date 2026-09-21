@@ -4,6 +4,8 @@ import { useState, type FormEvent } from 'react';
 
 export default function FulfilmentBrief() {
   const [saved, setSaved] = useState(false);
+  const [emailOpened, setEmailOpened] = useState(false);
+  const email = 'officialbandIt@gmail.com';
 
   function downloadBrief(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -13,6 +15,14 @@ export default function FulfilmentBrief() {
       '',
       ...Array.from(data.entries()).map(([key, value]) => `${key}: ${value}`),
     ].join('\n');
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    if (!(submitter instanceof HTMLButtonElement) || submitter.value !== 'download') {
+      const subject = `Fulfilment enquiry — ${String(data.get('Business') ?? '').trim()}`;
+      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(brief)}`;
+      setEmailOpened(true);
+      setSaved(false);
+      return;
+    }
     const url = URL.createObjectURL(new Blob([brief], { type: 'text/plain;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
@@ -28,13 +38,16 @@ export default function FulfilmentBrief() {
   return (
     <form
       onSubmit={downloadBrief}
-      onChange={() => setSaved(false)}
+      onChange={() => {
+        setSaved(false);
+        setEmailOpened(false);
+      }}
       className="rounded-xl border border-neutral-200 bg-white p-6 sm:p-8"
     >
       <h3 className="text-xl font-black tracking-tight">Tell us about your business</h3>
       <p className="mt-2 text-sm leading-6 text-neutral-600">
-        Prepare a brief to share with the BAND-IT team. Downloading saves it to your device; it does
-        not send an enquiry.
+        Tell us what you need. We’ll prepare an email to {email} for you to review and send from
+        your email app.
       </p>
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
         <label className="text-xs font-bold">
@@ -80,16 +93,32 @@ export default function FulfilmentBrief() {
           />
         </label>
       </div>
-      <button type="submit" className="button-primary mt-5 w-full">
+      <button type="submit" value="email" className="button-primary mt-5 w-full">
+        Open email enquiry
+      </button>
+      <button
+        type="submit"
+        value="download"
+        className="mt-3 min-h-11 w-full rounded-md border border-neutral-300 px-4 py-3 text-sm font-semibold"
+      >
         Download enquiry brief{' '}
         <span aria-hidden="true" className="ml-3">
           ↓
         </span>
       </button>
       <p role="status" className="mt-3 text-xs leading-5 text-neutral-600">
-        {saved
-          ? 'Your brief is ready. Keep it to share with the team; no information has been submitted.'
-          : 'Your details stay in this form until you download them.'}
+        {emailOpened
+          ? 'Your email app should open with your brief. Press Send there to submit your enquiry. If nothing opens, download the brief and email it to us.'
+          : saved
+            ? 'Your brief is ready. Keep it to share with the team; no information has been submitted.'
+            : 'Opening the email draft does not send it automatically.'}
+      </p>
+      <p className="mt-3 break-words text-sm text-neutral-600">
+        You can also email us directly at{' '}
+        <a className="underline" href={`mailto:${email}`}>
+          {email}
+        </a>
+        .
       </p>
     </form>
   );

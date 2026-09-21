@@ -1,3 +1,5 @@
+import { catalogueAdmin } from './catalogue.js';
+import { listCatalogue, catalogueRepository } from './catalogue-list.js';
 import {
   Router,
   type Router as ExpressRouter,
@@ -7,6 +9,7 @@ import {
 } from 'express';
 import { prisma } from '@bandit/database';
 import { z } from 'zod';
+import { wristbandColorSchema } from '@bandit/shared';
 import { AppError } from '../errors/app-error.js';
 import { hashPassword, verifyPassword } from '../customer-auth/password.js';
 import {
@@ -116,24 +119,23 @@ adminRouter.get(
       prisma.orderPayment.groupBy({ by: ['kind'], _sum: { amountMinor: true } }),
       prisma.inventory.findMany({
         where: { variant: { isActive: true, product: { isActive: true } } },
-        select: { quantity: true, reservedQuantity: true },
+        select: { quantity: true, reservedQuantity: true, lowStockThreshold: true },
       }),
       prisma.orderEnquiry.count({
         where: {
           status: 'AWAITING_WHATSAPP',
-          OR: [{ workflow: null }, { workflow: { quotes: { none: {} } } }],
         },
       }),
       prisma.$queryRaw<Array<{ outstandingMinor: string }>>`
-        SELECT COALESCE(SUM(GREATEST(q."totalMinor" - COALESCE(p.paid, 0), 0)), 0)::text AS "outstandingMinor"
-        FROM "OrderWorkflow" w
-        JOIN "OrderQuote" q ON q.id = w."acceptedQuoteId"
-        JOIN "OrderEnquiry" e ON e.id = w."orderId"
+        SELECT COALESCE(SUM(GREATEST((CASE WHEN e.snapshot->>'version' = '2' THEN e."subtotalMinor" + CASE WHEN w."deliveryMethod" = 'COLLECTION' THEN 0 ELSE COALESCE(w."deliveryMinor", 0) END ELSE q."totalMinor" END) - COALESCE(p.paid, 0), 0)), 0)::text AS "outstandingMinor"
+        FROM "OrderEnquiry" e
+        LEFT JOIN "OrderWorkflow" w ON e.id = w."orderId"
+        LEFT JOIN "OrderQuote" q ON q.id = w."acceptedQuoteId"
         LEFT JOIN (
           SELECT "workflowId", SUM(CASE WHEN kind = 'PAYMENT' THEN "amountMinor" ELSE -"amountMinor" END) AS paid
           FROM "OrderPayment" GROUP BY "workflowId"
         ) p ON p."workflowId" = w.id
-        WHERE e.status <> 'CANCELLED'
+        WHERE e.status <> 'CANCELLED' AND (e.snapshot->>'version' = '2' OR q.id IS NOT NULL)
       `,
     ]);
     return {
@@ -141,7 +143,8 @@ adminRouter.get(
       payments,
       needsQuote,
       outstandingMinor: balances[0]?.outstandingMinor ?? '0',
-      lowStock: inventory.filter((i) => i.quantity - i.reservedQuantity < 100).length,
+      lowStock: inventory.filter((i) => i.quantity - i.reservedQuantity <= i.lowStockThreshold)
+        .length,
     };
   })
 );
@@ -291,17 +294,16 @@ adminRouter.get(
   '/products',
   route(async (req) => {
     requireAdmin(await currentStaff(req));
-    const page = z.coerce.number().int().min(1).max(10000).default(1).parse(req.query.page);
-    const products = await prisma.product.findMany({
-      orderBy: { name: 'asc' },
-      skip: (page - 1) * 20,
-      take: 21,
-      include: {
-        variants: { include: { inventory: true } },
-        pricingTiers: { orderBy: { minQuantity: 'asc' } },
-      },
-    });
-    return { items: products.slice(0, 20), hasMore: products.length > 20, page };
+    return listCatalogue(req.query);
+  })
+);
+adminRouter.get(
+  '/products/:id',
+  route(async (req) => {
+    requireAdmin(await currentStaff(req));
+    const product = await catalogueRepository.detail(req.params.id);
+    if (!product) throw new AppError('Product not found', 404, 'NOT_FOUND');
+    return product;
   })
 );
 const price = z
@@ -368,7 +370,7 @@ adminRouter.patch(
       .object({
         updatedAt: z.string().datetime(),
         name: z.string().trim().min(1).max(150),
-        color: z.string().trim().max(80),
+        color: wristbandColorSchema,
         material: z.string().trim().max(80),
         size: z.string().trim().max(80),
         isActive: z.boolean(),
@@ -437,3 +439,5 @@ adminRouter.post(
     });
   })
 );
+
+adminRouter.use(catalogueAdmin);

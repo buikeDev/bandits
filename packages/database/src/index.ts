@@ -15,4 +15,5 @@ export async function checkDatabaseConnection(): Promise<void> {
 }
 
 export { PrismaClient };
+export { Prisma } from '@prisma/client';
 export type * from '@prisma/client';

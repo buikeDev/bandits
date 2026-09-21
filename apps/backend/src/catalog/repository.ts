@@ -19,7 +19,8 @@ export const catalogRepository = {
   async listProducts(query: ProductListQuery) {
     const where: Prisma.ProductWhereInput = {
       isActive: true,
-      ...(query.category ? { category: { slug: query.category } } : {}),
+      ...(query.featured ? { isFeatured: true } : {}),
+      category: { isActive: true, ...(query.category ? { slug: query.category } : {}) },
       ...(query.kind ? { kind: query.kind } : {}),
       ...(query.search
         ? {
@@ -40,7 +41,7 @@ export const catalogRepository = {
             ? [{ createdAt: 'desc' }]
             : query.sort === 'name'
               ? [{ name: 'asc' }]
-              : [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
+              : [{ isFeatured: 'desc' }, { featuredOrder: 'asc' }, { createdAt: 'desc' }];
     const [items, total] = await prisma.$transaction([
       prisma.product.findMany({
         where,
@@ -55,7 +56,10 @@ export const catalogRepository = {
   },
 
   findProductBySlug: (slug: string) =>
-    prisma.product.findFirst({ where: { slug, isActive: true }, include: productInclude }),
+    prisma.product.findFirst({
+      where: { slug, isActive: true, category: { isActive: true } },
+      include: productInclude,
+    }),
 };
 
 export type CatalogProduct = NonNullable<

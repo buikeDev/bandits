@@ -1,3 +1,4 @@
+import { createTestStock, removeTestStock } from './test-stock.js';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
@@ -21,6 +22,7 @@ test(
       items: [
         {
           id: 'integration-only',
+          product: undefined as { id: string; slug: string; variantId: string } | undefined,
           material: 'Tyvek',
           colorName: 'Yellow',
           color: '#ffcc00',
@@ -34,6 +36,7 @@ test(
       ],
     };
     try {
+      input.items[0].product = await createTestStock(requestId);
       const submit = () =>
         fetch(`${origin}/api/orders`, {
           method: 'POST',
@@ -48,12 +51,14 @@ test(
       const saved = await prisma.orderEnquiry.findUniqueOrThrow({ where: { requestId } });
       assert.equal(saved.reference, body.data.reference);
       assert.equal(saved.status, 'AWAITING_WHATSAPP');
-      assert.equal(saved.quoteRequired, true);
+      assert.equal(saved.quoteRequired, false);
+      assert.equal(saved.subtotalMinor, 200000n);
       assert.equal(saved.totalQuantity, 10);
       assert.match(JSON.stringify(saved.snapshot), /data:image\/png;base64/);
       assert.equal((await fetch(`${origin}/api/orders/${saved.id}`)).status, 404);
     } finally {
       await prisma.orderEnquiry.deleteMany({ where: { requestId } });
+      await removeTestStock(requestId);
       await new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve()))
       );

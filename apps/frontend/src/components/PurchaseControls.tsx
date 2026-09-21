@@ -1,19 +1,7 @@
 'use client';
+import { wristbandColorHex } from '@bandit/shared';
 import Link from 'next/link';
 import type { ProductDetailDto } from '@bandit/shared';
-const palette = [
-  ['Yellow', '#ffc400'],
-  ['Blue', '#0075ff'],
-  ['Black', '#101010'],
-  ['White', '#fff'],
-  ['Silver', '#aaa'],
-  ['Red', '#ec1026'],
-  ['Green', '#00c965'],
-  ['Pink', '#ef51b4'],
-  ['Purple', '#a94de4'],
-  ['Orange', '#f37900'],
-  ['Multi-colour', '#ffc400'],
-];
 type Props = {
   product: ProductDetailDto;
   selectedColor: string;
@@ -38,13 +26,15 @@ export default function PurchaseControls(p: Props) {
       currency: 'NGN',
       maximumFractionDigits: 0,
     }).format(value);
-  const choices = palette.map(([name, hex]) => {
-    const matches = p.product.variants.filter((v) => v.color?.toLowerCase() === name.toLowerCase());
+  const choices = [
+    ...new Set(p.product.variants.map((v) => v.color).filter((c): c is string => Boolean(c))),
+  ].map((name) => {
+    const matches = p.product.variants.filter((v) => v.color === name);
     return {
       name,
-      hex,
-      label: name === 'Silver' ? 'Grey' : name === 'Multi-colour' ? 'Multicolor' : name,
-      soldOut: matches.length > 0 && matches.every((v) => v.availableQuantity <= 0),
+      hex: wristbandColorHex(name),
+      label: name,
+      soldOut: matches.every((v) => v.availableQuantity <= 0),
     };
   });
   const selected = choices.find((v) => v.name.toLowerCase() === p.selectedColor.toLowerCase());

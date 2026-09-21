@@ -2,10 +2,8 @@
 
 import Link from 'next/link';
 import WristbandArtwork from '@/components/WristbandArtwork';
-import { useEffect, useState } from 'react';
-import type { ProductDetailDto } from '@bandit/shared';
-import { getProduct } from '@/catalog/api';
-import { calculatePrice, formatOrderPrice } from '@/components/order-pricing';
+import { useOrderPrice } from '@/components/useOrderPrice';
+import { formatOrderPrice } from '@/components/order-pricing';
 import Header from '@/components/Header';
 import WhatsAppCheckout from '@/components/WhatsAppCheckout';
 import Footer from '@/components/Footer';
@@ -13,51 +11,18 @@ import { useDesignOrder } from '@/components/DesignOrderProvider';
 
 export default function OrderPage() {
   const { items, ready, error, remove, updateQuantity } = useDesignOrder();
-  const [catalog, setCatalog] = useState<Record<string, ProductDetailDto>>({});
-  const [loadingPrices, setLoadingPrices] = useState(false);
-  const productSlugs = JSON.stringify(
-    [...new Set(items.flatMap((item) => (item.product ? [item.product.slug] : [])))].sort()
-  );
-  useEffect(() => {
-    let active = true;
-    const slugs = JSON.parse(productSlugs) as string[];
-    setLoadingPrices(slugs.length > 0);
-    Promise.all(
-      slugs.map(async (slug) => {
-        try {
-          return [slug, await getProduct(slug)] as const;
-        } catch {
-          return null;
+  const pricing = useOrderPrice(items);
+  const loadingPrices = pricing.loading;
+  const prices = items.map((_item, i) =>
+    pricing.data?.lines[i]
+      ? {
+          unit: pricing.data.lines[i].unitMinor / 100,
+          total: pricing.data.lines[i].totalMinor / 100,
         }
-      })
-    ).then((results) => {
-      if (!active) return;
-      setCatalog(Object.fromEntries(results.filter((result) => result !== null)));
-      setLoadingPrices(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, [productSlugs]);
-  const prices = items.map((item) => {
-    const product = item.product ? catalog[item.product.slug] : undefined;
-    const variant = product?.variants.find((entry) => entry.id === item.product?.variantId);
-    return calculatePrice(
-      product
-        ? variant
-          ? {
-              basePrice: product.basePrice,
-              priceAdjustment: variant.priceAdjustment,
-              pricingTiers: product.pricingTiers,
-            }
-          : undefined
-        : item.product?.pricing,
-      item.quantity
-    );
-  });
-  const subtotal =
-    prices.reduce((sum, price) => sum + Math.round((price?.total ?? 0) * 100), 0) / 100;
-  const unpriced = prices.filter((price) => price === null).length;
+      : null
+  );
+  const subtotal = (pricing.data?.subtotalMinor ?? 0) / 100;
+  const unpriced = prices.filter((p) => p === null).length;
   return (
     <>
       <Header />
@@ -203,6 +168,15 @@ export default function OrderPage() {
                           {formatOrderPrice(prices[index]!.unit)} per unit
                         </span>
                         <strong>{formatOrderPrice(prices[index]!.total)}</strong>
+                        <span className="text-xs text-neutral-500">
+                          Material{' '}
+                          {formatOrderPrice(pricing.data!.lines[index].materialUnitMinor / 100)} +
+                          customisation{' '}
+                          {formatOrderPrice(
+                            pricing.data!.lines[index].customizationUnitMinor / 100
+                          )}{' '}
+                          per band
+                        </span>
                       </>
                     ) : (
                       <span className="text-neutral-500">
@@ -210,7 +184,7 @@ export default function OrderPage() {
                           ? loadingPrices
                             ? 'Loading price…'
                             : 'Price unavailable — to be confirmed'
-                          : 'Custom design — quote required'}
+                          : 'Select a stocked wristband to calculate pricing'}
                       </span>
                     )}
                   </div>
@@ -240,13 +214,13 @@ export default function OrderPage() {
                 aria-live="polite"
               >
                 <div className="flex justify-between gap-3 font-bold">
-                  <span>{unpriced ? 'Priced items subtotal' : 'Estimated subtotal'}</span>
+                  <span>{unpriced ? 'Priced items subtotal' : 'Items total'}</span>
                   <span>
                     {prices.some(Boolean)
                       ? formatOrderPrice(subtotal)
                       : loadingPrices
                         ? 'Loading…'
-                        : 'Quote required'}
+                        : 'Pricing unavailable'}
                   </span>
                 </div>
                 {unpriced > 0 && (
@@ -260,11 +234,23 @@ export default function OrderPage() {
                   <span>To be confirmed</span>
                 </div>
                 <p className="text-xs leading-5 text-neutral-500">
-                  Bulk discounts update when quantities change. Final pricing, requested colours and
-                  delivery will be confirmed through WhatsApp.
+                  Material bulk discounts and per-band customisation are included. Delivery is
+                  confirmed separately.
                 </p>
               </div>
-              <WhatsAppCheckout items={items} disabled={!ready || loadingPrices} />
+              {pricing.error && (
+                <p role="alert" className="my-3 text-sm text-red-700">
+                  {pricing.error}{' '}
+                  <button className="underline" onClick={pricing.retry}>
+                    Retry pricing
+                  </button>
+                </p>
+              )}
+              <WhatsAppCheckout
+                items={items}
+                expectedSubtotalMinor={pricing.data?.subtotalMinor}
+                disabled={!ready || loadingPrices || unpriced > 0}
+              />
             </aside>
           </div>
         )}

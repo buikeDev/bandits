@@ -1,6 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { wristbandColorHex } from '@bandit/shared';
+import type { ProductDetailDto } from '@bandit/shared';
+import { getDesignOptions } from '@/catalog/api';
+import { calculatePrice, formatOrderPrice } from '@/components/order-pricing';
+import CustomStockPicker from '@/components/CustomStockPicker';
 import LogoLayerControls from '@/components/LogoLayerControls';
 import WristbandArtwork from '@/components/WristbandArtwork';
 import type { LogoLayer } from '@/components/logo-layout';
@@ -18,25 +23,44 @@ const materials = [
   { name: 'Silicone', detail: 'Made to keep', size: '12 × 202 mm', height: 60 },
   { name: 'Fabric', detail: 'Festival favourite', size: '15 × 350 mm', height: 68 },
 ];
-const colors = [
-  ['Sunshine', '#fbbf24'],
-  ['Coral', '#fb7185'],
-  ['Tangerine', '#fb923c'],
-  ['Sky', '#7dd3fc'],
-  ['Mint', '#6ee7b7'],
-  ['Lilac', '#c4b5fd'],
-  ['White', '#ffffff'],
-  ['Black', '#171717'],
-];
+const defaultColor = ['Yellow', wristbandColorHex('Yellow')];
 
 export default function CustomPage() {
   const router = useRouter();
   const { adding, busy, confirm } = useCartFeedback();
   const { add, items, ready, error: orderError } = useDesignOrder();
+  const [catalog, setCatalog] = useState<ProductDetailDto[]>([]);
+  const [catalogError, setCatalogError] = useState('');
+  const [fee, setFee] = useState<number | null>(null);
+  const [choice, setChoice] = useState('');
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setCatalogError('');
+    getDesignOptions()
+      .then((data) => {
+        if (active) {
+          setCatalog(data.products);
+          setFee(data.customizationFeeMinor);
+        }
+      })
+      .catch((error) => {
+        if (active) setCatalogError(error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [reload]);
+  const options = catalog.flatMap((product) =>
+    product.variants
+      .filter((v) => v.isCustomizationEnabled)
+      .map((variant) => ({ product, variant }))
+  );
+  const selected = options.find((option) => option.variant.id === choice);
   const [quantity, setQuantity] = useState('100');
   const [readingLogo, setReadingLogo] = useState(false);
   const [material, setMaterial] = useState(materials[0]);
-  const [color, setColor] = useState(colors[0]);
+  const [color, setColor] = useState(defaultColor);
   const [ink, setInk] = useState('#171717');
   const [message, setMessage] = useState('GOOD TIMES. GREAT PEOPLE.');
   const [subtitle, setSubtitle] = useState('ALL ACCESS • 2026');
@@ -55,13 +79,48 @@ export default function CustomPage() {
   const [notice, setNotice] = useState('');
 
   const sameColor = color[1] === ink;
+  const materialPrice = calculatePrice(
+    selected
+      ? {
+          basePrice: selected.product.basePrice,
+          priceAdjustment: selected.variant.priceAdjustment,
+          pricingTiers: selected.product.pricingTiers,
+        }
+      : undefined,
+    Number(quantity)
+  );
+  const printing = Boolean(message.trim() || subtitle.trim() || logos.length);
+  const unitPrice =
+    materialPrice && fee !== null ? materialPrice.unit + (printing ? fee / 100 : 0) : null;
+  function chooseStock(id: string) {
+    setChoice(id);
+    const option = options.find((o) => o.variant.id === id);
+    if (!option) {
+      setColor(['', '#e5e5e5']);
+      setError('');
+      setNotice('');
+      return;
+    }
+    const name = option.variant.material?.toLowerCase() ?? '';
+    setMaterial(
+      materials.find(
+        (m) =>
+          name.includes(m.name.toLowerCase()) ||
+          (m.name === 'Silicone' && name.includes('rubber')) ||
+          (m.name === 'Vinyl' && name.includes('plastic'))
+      ) ?? materials[0]
+    );
+    const nameColor = option.variant.color ?? '';
+    setColor([nameColor, wristbandColorHex(nameColor)]);
+  }
 
   function reset() {
+    setChoice('');
     setQuantity('100');
     setReadingLogo(false);
     setUploadEpoch((value) => value + 1);
     setMaterial(materials[0]);
-    setColor(colors[0]);
+    setColor(defaultColor);
     setInk('#171717');
     setMessage('GOOD TIMES. GREAT PEOPLE.');
     setSubtitle('ALL ACCESS • 2026');
@@ -83,6 +142,17 @@ export default function CustomPage() {
       setError('Choose a contrasting print colour before adding this design.');
       return;
     }
+    if (!selected || fee === null) {
+      setError('Choose an available wristband and colour first.');
+      return;
+    }
+    const already = items
+      .filter((i) => i.product?.variantId === selected.variant.id)
+      .reduce((n, i) => n + i.quantity, 0);
+    if (units + already > selected.variant.availableQuantity) {
+      setError('The quantity exceeds available stock.');
+      return;
+    }
     if (readingLogo || !ready) return;
     const saved = add({
       material: material.name,
@@ -95,6 +165,19 @@ export default function CustomPage() {
       logo: '',
       logos,
       quantity: units,
+      product: {
+        id: selected.product.id,
+        slug: selected.product.slug,
+        name: selected.product.name,
+        variantId: selected.variant.id,
+        variantName: selected.variant.name,
+        availableQuantity: selected.variant.availableQuantity,
+        pricing: {
+          basePrice: selected.product.basePrice,
+          priceAdjustment: selected.variant.priceAdjustment,
+          pricingTiers: selected.product.pricingTiers,
+        },
+      },
     });
     if (!saved) return;
     setNotice('Design added to your order.');
@@ -236,46 +319,30 @@ export default function CustomPage() {
             className="rounded-2xl border border-neutral-200 bg-white p-6 sm:p-8"
           >
             <fieldset>
-              <legend className="text-lg font-black">
-                <span className="mr-3 text-amber-500">01</span>Pick your material
-              </legend>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                {materials.map((item) => (
+              <legend className="text-lg font-black">Choose your wristband and colour</legend>
+              <CustomStockPicker
+                key={uploadEpoch}
+                options={options}
+                value={choice}
+                onSelect={chooseStock}
+              />
+              {catalogError && (
+                <p role="alert" className="mt-3 text-red-700">
+                  {catalogError}{' '}
                   <button
                     type="button"
-                    key={item.name}
-                    aria-pressed={material.name === item.name}
-                    onClick={() => setMaterial(item)}
-                    className={`rounded-lg border p-4 text-left transition-colors ${material.name === item.name ? 'border-black bg-neutral-100 ring-1 ring-black' : 'border-neutral-200 hover:border-neutral-500'}`}
+                    className="underline"
+                    onClick={() => setReload((v) => v + 1)}
                   >
-                    <span className="block text-sm font-bold">{item.name}</span>
-                    <span className="mt-1 block text-xs text-neutral-500">{item.detail}</span>
+                    Retry
                   </button>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset className="mt-7 border-t border-neutral-100 pt-7">
-              <legend className="sr-only">Wristband colour</legend>
-              <h2 className="text-lg font-black">
-                <span className="mr-3 text-amber-500">02</span>Set the mood
-              </h2>
-              <p className="mt-4 text-xs text-neutral-500">
-                Band colour <span className="ml-2 font-bold text-black">{color[0]}</span>
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {colors.map((item) => (
-                  <button
-                    key={item[0]}
-                    type="button"
-                    title={item[0]}
-                    aria-label={item[0]}
-                    aria-pressed={color[0] === item[0]}
-                    onClick={() => setColor(item)}
-                    className={`h-9 w-9 rounded-full border border-black/15 ring-offset-4 ${color[0] === item[0] ? 'ring-2 ring-black' : ''}`}
-                    style={{ backgroundColor: item[1] }}
-                  />
-                ))}
-              </div>
+                </p>
+              )}
+              {!catalogError && fee !== null && !options.length && (
+                <p className="mt-3 text-sm">
+                  No customisable stock is available yet. Please check back soon.
+                </p>
+              )}
             </fieldset>
             <fieldset className="mt-7 border-t border-neutral-100 pt-7">
               <legend className="sr-only">Text and artwork</legend>
@@ -365,6 +432,14 @@ export default function CustomPage() {
                   {material.name} / {color[0]}
                 </span>
               </div>
+              {unitPrice !== null && (
+                <p className="mb-4 text-sm">
+                  Material: {formatOrderPrice(materialPrice!.unit)} + customisation:{' '}
+                  {formatOrderPrice(printing ? fee! / 100 : 0)} per band.
+                  <br />
+                  <strong>{formatOrderPrice(unitPrice * Number(quantity))} before delivery</strong>
+                </p>
+              )}
               <label htmlFor="design-quantity" className="mb-2 block text-xs font-bold">
                 How many wristbands?
               </label>

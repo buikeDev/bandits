@@ -15,6 +15,10 @@ type Detail = {
   paidMinor: string;
   snapshot: { items: SavedLine[] };
   quote: Quote | null;
+  calculated: boolean;
+  subtotalMinor: string;
+  totalMinor: string | null;
+  deliveryMinor: string | null;
   deliveryMethod?: string;
   tracking?: string;
 };
@@ -70,6 +74,20 @@ export default function Page({ params }: { params: { reference: string } }) {
                 <p className="mt-2 break-words text-sm">Delivery tracking: {data.tracking}</p>
               )}
             </div>
+            {data.calculated && (
+              <section className="rounded-xl border bg-white p-5">
+                <h2 className="font-bold">Order price</h2>
+                <p>Items: {money(data.subtotalMinor)}</p>
+                <p>
+                  Delivery:{' '}
+                  {data.deliveryMinor === null ? 'Pending confirmation' : money(data.deliveryMinor)}
+                </p>
+                <p>
+                  {data.deliveryMinor === null ? 'Subtotal before delivery' : 'Total'}:{' '}
+                  {money(data.totalMinor ?? data.subtotalMinor)}
+                </p>
+              </section>
+            )}
             {data.quote && (
               <section className="mb-6 rounded-xl border p-5">
                 <h2 className="mb-4 text-lg font-bold">Agreed quote</h2>

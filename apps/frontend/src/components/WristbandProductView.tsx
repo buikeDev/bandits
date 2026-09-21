@@ -53,6 +53,27 @@ export default function WristbandProductView({ product }: { product: ProductDeta
       </nav>
       <div className="product-columns">
         <div className="gallery-column min-w-0">
+          {!!product.images?.length && (
+            <section aria-label="Product photographs" className="mb-4 flex gap-3 overflow-x-auto">
+              {product.images.map((src, i) => (
+                <a
+                  key={src}
+                  href={src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="relative block h-32 w-40 shrink-0 overflow-hidden rounded-lg"
+                >
+                  <Image
+                    src={src}
+                    alt={product.name + ' photo ' + (i + 1)}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                </a>
+              ))}
+            </section>
+          )}
           <section
             aria-label="Wristband preview"
             className="min-w-0 self-start overflow-hidden rounded-2xl border border-black/10 bg-[#faf9f6]"
@@ -137,7 +158,7 @@ export default function WristbandProductView({ product }: { product: ProductDeta
             <section className="product-bulk">
               <div>
                 <h2>Bulk pricing</h2>
-                <Link href="/order">Get a quote</Link>
+                <Link href="/order">View order</Link>
               </div>
               <dl>
                 {product.pricingTiers.map((tier) => (

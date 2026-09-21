@@ -12,9 +12,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api';
 export default function WhatsAppCheckout({
   items,
   disabled,
+  expectedSubtotalMinor,
 }: {
   items: DesignItem[];
   disabled: boolean;
+  expectedSubtotalMinor?: number;
 }) {
   const { clearCheckedOut } = useDesignOrder();
   const { customer, loading: authLoading } = useAuth();
@@ -63,7 +65,7 @@ export default function WhatsAppCheckout({
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, items }),
+        body: JSON.stringify({ requestId, items, expectedSubtotalMinor }),
         signal: AbortSignal.timeout(30000),
       });
       if (result.status === 413)

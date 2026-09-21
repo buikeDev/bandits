@@ -26,7 +26,7 @@ const product: ProductDetailDto = {
       material: 'Tyvek',
       size: null,
       priceAdjustment: 10,
-      isCustomizationEnabled: false,
+      isCustomizationEnabled: true,
       availableQuantity: 500,
     },
   ],
@@ -53,6 +53,8 @@ function setup() {
     saved,
     dependencies: {
       product: async () => product,
+      fee: async () => 10000,
+      resolve: async () => ({ product, variantId: 'v1' }),
       find: async (id: string) => saved.get(id) ?? null,
       save: async (order: OrderSnapshot) => {
         const result = saved.get(order.requestId) ?? order;
@@ -123,7 +125,7 @@ test('combined lines cannot exceed stock', async () => {
   assert.equal(saved.size, 0);
 });
 
-test('custom artwork and positions persist; custom prices remain unknown', async () => {
+test('custom artwork persists and customisation is charged per band', async () => {
   const { saved, dependencies } = setup();
   const logo = {
     id: 'logo',
@@ -141,8 +143,10 @@ test('custom artwork and positions persist; custom prices remain unknown', async
   );
   const snapshot = [...saved.values()][0];
   assert.equal(snapshot.totalQuantity, 200);
-  assert.equal(snapshot.quoteRequired, true);
-  assert.equal(snapshot.subtotalMinor, 900000);
+  assert.equal(snapshot.quoteRequired, false);
+  assert.equal(snapshot.subtotalMinor, 2800000);
+  assert.equal(snapshot.snapshot.items[1].customizationUnitMinor, 10000);
+  assert.equal(snapshot.snapshot.items[1].materialUnitMinor, 9000);
   assert.deepEqual(snapshot.snapshot.items[1].logos, [logo]);
   assert.match(result.message, /Team & friends 🎉/);
   assert.match(result.message, /not attached to WhatsApp/);
@@ -155,15 +159,16 @@ test('custom artwork and positions persist; custom prices remain unknown', async
   );
 });
 
-test('unlisted colour requires a quote instead of another variant price', async () => {
-  const { saved, dependencies } = setup();
-  await prepareOrder(
-    { requestId: randomUUID(), items: [{ ...line, colorName: 'Pink' }] },
-    dependencies
+test('unlisted colours cannot be priced or saved', async () => {
+  const { dependencies, saved } = setup();
+  await assert.rejects(
+    prepareOrder(
+      { requestId: randomUUID(), items: [{ ...line, colorName: 'Pink' }] },
+      dependencies
+    ),
+    /available colour/
   );
-  const snapshot = [...saved.values()][0];
-  assert.equal(snapshot.quoteRequired, true);
-  assert.equal(snapshot.snapshot.items[0].unitMinor, null);
+  assert.equal(saved.size, 0);
 });
 
 test('retry keeps one reference; changed cart cannot reuse the same token', async () => {
@@ -204,4 +209,64 @@ test('unavailable variant prevents saving an order', async () => {
     /no longer available/
   );
   assert.equal(saved.size, 0);
+});
+
+test('fee updates affect new orders but never retries', async () => {
+  const { dependencies, saved } = setup();
+  let fee = 10000;
+  dependencies.fee = async () => fee;
+  const input = { requestId: randomUUID(), items: [{ ...line, message: 'Hello' }] };
+  const first = await prepareOrder(input, dependencies);
+  fee = 15000;
+  assert.deepEqual(await prepareOrder(input, dependencies), first);
+  await prepareOrder({ ...input, requestId: randomUUID() }, dependencies);
+  assert.deepEqual(
+    [...saved.values()].map((o) => o.subtotalMinor),
+    [1900000, 2400000]
+  );
+});
+test('checkout rejects a stale displayed price without saving', async () => {
+  const { dependencies, saved } = setup();
+  await assert.rejects(
+    prepareOrder(
+      { requestId: randomUUID(), items: [line], expectedSubtotalMinor: 1 },
+      dependencies
+    ),
+    /Prices changed/
+  );
+  assert.equal(saved.size, 0);
+});
+test('custom and plain lines share stock availability', async () => {
+  const { dependencies, saved } = setup();
+  await assert.rejects(
+    prepareOrder(
+      {
+        requestId: randomUUID(),
+        items: [
+          { ...line, quantity: 300 },
+          { ...line, id: 'print', quantity: 300, message: 'Hello' },
+        ],
+      },
+      dependencies
+    ),
+    /Only 500/
+  );
+  assert.equal(saved.size, 0);
+});
+
+test('the same per-band fee applies to every material', async () => {
+  for (const material of ['Tyvek', 'Vinyl', 'Silicone', 'Fabric']) {
+    const { dependencies, saved } = setup();
+    dependencies.product = async () => ({
+      ...product,
+      variants: product.variants.map((v) => ({ ...v, material })),
+    });
+    await prepareOrder(
+      { requestId: randomUUID(), items: [{ ...line, material, message: 'Printed', quantity: 10 }] },
+      dependencies
+    );
+    const snapshot = [...saved.values()][0];
+    assert.equal(snapshot.snapshot.items[0].customizationUnitMinor, 10000);
+    assert.equal(snapshot.subtotalMinor, 210000);
+  }
 });
