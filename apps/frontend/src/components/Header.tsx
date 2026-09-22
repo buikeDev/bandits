@@ -21,6 +21,13 @@ export default function Header() {
   const pathname = usePathname();
   const { customer, loading } = useAuth();
   const { items } = useDesignOrder();
+  const nameParts = customer?.name.trim().split(/\s+/).filter(Boolean) ?? [];
+  const initials = nameParts.length
+    ? [nameParts[0], ...(nameParts.length > 1 ? [nameParts[nameParts.length - 1]] : [])]
+        .map((part) => Array.from(part)[0])
+        .join('')
+        .toLocaleUpperCase()
+    : Array.from(customer?.email ?? 'A')[0].toLocaleUpperCase();
   return (
     <header className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="page-shell flex h-[72px] items-center justify-between">
@@ -62,25 +69,36 @@ export default function Header() {
             </svg>
           </Link>
           <Link
-            href={customer ? '/account' : '/login'}
+            href={customer || loading ? '/account' : '/login'}
             aria-label={loading ? 'Account' : customer ? `${customer.name}'s account` : 'Sign in'}
             className="header-icon"
           >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2" />
-            </svg>
+            {loading ? (
+              <span aria-hidden="true" className="h-8 w-8 rounded-full bg-neutral-100" />
+            ) : customer ? (
+              <span
+                aria-hidden="true"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-amber-400 text-xs font-bold leading-none text-black"
+              >
+                {initials}
+              </span>
+            ) : (
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2" />
+              </svg>
+            )}
           </Link>
           <Link
             href="/order"

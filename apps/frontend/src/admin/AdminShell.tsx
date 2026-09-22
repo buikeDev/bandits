@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { createContext, useContext, useEffect, useState } from 'react';
 import DashboardFrame from './DashboardFrame';
 import { usePathname, useRouter } from 'next/navigation';
@@ -59,7 +60,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </button>
         </div>
       ) : !staff ? (
-        <p role="status">Checking staff access…</p>
+        <LoadingScreen embedded label="Checking staff access…" />
       ) : (
         <StaffContext.Provider value={staff}>{children}</StaffContext.Provider>
       )}

@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAdminData } from '@/admin/useAdminData';
@@ -101,7 +102,7 @@ export default function Orders() {
           </button>
         </div>
       ) : !data ? (
-        <p role="status">Loading orders…</p>
+        <LoadingScreen embedded label="Loading orders…" />
       ) : (
         <>
           <div className="overflow-x-auto rounded-xl border bg-white">

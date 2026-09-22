@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import BrandLogo from './BrandLogo';
+import NewsletterSignup from './NewsletterSignup';
 
 const columns = [
   {
@@ -16,6 +17,24 @@ const columns = [
   },
   { title: 'COMPANY', links: ['About Us', 'Our Clients', 'Testimonials', 'Contact Us'] },
 ];
+const shopLinks: Record<string, string> = {
+  Wristbands: '/shop?kind=WRISTBAND',
+  'All Products': '/shop',
+  'New Arrivals': '/shop?sort=newest',
+  'Best Sellers': '/shop?sort=best-sellers',
+  'Bulk Orders': '/bulk',
+};
+const printingLinks: Record<string, string> = {
+  'Design Your Wristband': '/custom',
+  'Printing Options': '/printing#printing-options',
+  Templates: '/printing#templates',
+};
+const companyLinks: Record<string, string> = {
+  'About Us': '/company#about-us',
+  'Our Clients': '/company#our-clients',
+  Testimonials: '/company#testimonials',
+  'Contact Us': '/company#contact-us',
+};
 
 export default function Footer() {
   return (
@@ -43,9 +62,11 @@ export default function Footer() {
                 <li key={link}>
                   <Link
                     href={
-                      column.title === 'FULFILMENT'
-                        ? `/fulfilment#${({ 'How It Works': 'how-it-works', Storage: 'storage', Packaging: 'packaging', Delivery: 'delivery', 'For Businesses': 'businesses' } as Record<string, string>)[link]}`
-                        : '#'
+                      column.title === 'SHOP'
+                        ? shopLinks[link]
+                        : column.title === 'FULFILMENT'
+                          ? `/fulfilment#${({ 'How It Works': 'how-it-works', Storage: 'storage', Packaging: 'packaging', Delivery: 'delivery', 'For Businesses': 'businesses' } as Record<string, string>)[link]}`
+                          : (printingLinks[link] ?? companyLinks[link] ?? '#')
                     }
                     className="text-[10px] text-neutral-600 hover:text-black"
                   >
@@ -61,17 +82,7 @@ export default function Footer() {
           <p className="mt-4 text-[10px] leading-5 text-neutral-600">
             Get updates on new products, offers and more.
           </p>
-          <form className="mt-4 flex">
-            <input
-              aria-label="Email address"
-              type="email"
-              placeholder="Enter your email"
-              className="min-w-0 flex-1 rounded-l border border-neutral-300 px-3 py-2 text-[10px] outline-none focus:border-black"
-            />
-            <button aria-label="Subscribe" className="rounded-r bg-black px-3 text-white">
-              ↗
-            </button>
-          </form>
+          <NewsletterSignup />
         </div>
       </div>
       <div className="page-shell flex flex-col justify-between gap-3 py-6 text-[9px] text-neutral-500 sm:flex-row">

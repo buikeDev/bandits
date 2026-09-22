@@ -1,21 +1,41 @@
 'use client';
 
 import type { CategoryDto, PaginatedProductsDto } from '@bandit/shared';
-import { FormEvent, useEffect, useState } from 'react';
+import { Suspense, FormEvent, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import { CatalogSkeleton } from '@/components/CatalogSkeleton';
 import Footer from '@/components/Footer';
 import { getCategories, getProducts } from '@/catalog/api';
 import { ProductCard } from '@/catalog/ProductCard';
 
-export default function ShopPage() {
+function ShopContent() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const update = (changes: Record<string, string>) => {
+    const next = new URLSearchParams(params.toString());
+    next.delete('page');
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    router.replace(`/shop?${next}`, { scroll: false });
+  };
   const [catalog, setCatalog] = useState<PaginatedProductsDto | null>(null);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [category, setCategory] = useState('');
-  const [sort, setSort] = useState('featured');
-  const [page, setPage] = useState(1);
+  const search = (params.get('search') ?? '').slice(0, 150);
+  const [searchInput, setSearchInput] = useState(search);
+  useEffect(() => setSearchInput(search), [search]);
+  const category = params.get('category') ?? '';
+  const kind = ['WRISTBAND', 'MARKETPLACE'].includes(params.get('kind') ?? '')
+    ? params.get('kind')!
+    : '';
+  const sort = ['featured', 'newest', 'best-sellers', 'price-asc', 'price-desc', 'name'].includes(
+    params.get('sort') ?? ''
+  )
+    ? params.get('sort')!
+    : 'featured';
+  const page = Math.min(10000, Math.max(1, Math.floor(Number(params.get('page')) || 1)));
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -25,7 +45,8 @@ export default function ShopPage() {
   }, []);
   useEffect(() => {
     let active = true;
-    const query = new URLSearchParams({ kind: 'WRISTBAND', sort, page: String(page), limit: '12' });
+    const query = new URLSearchParams({ sort, page: String(page), limit: '12' });
+    if (kind) query.set('kind', kind);
     if (search) query.set('search', search);
     if (category) query.set('category', category);
     setError('');
@@ -40,13 +61,12 @@ export default function ShopPage() {
     return () => {
       active = false;
     };
-  }, [search, category, sort, page]);
+  }, [search, category, sort, page, kind]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    setPage(1);
-    setSearch(String(form.get('search') ?? '').trim());
+    update({ search: String(form.get('search') ?? '').trim() });
   }
 
   return (
@@ -56,7 +76,18 @@ export default function ShopPage() {
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="eyebrow">BAND-IT CATALOG</p>
-            <h1 className="mt-3 text-4xl font-black">Shop wristbands</h1>
+            <h1 className="mt-3 text-4xl font-black">
+              {sort === 'best-sellers'
+                ? 'Best sellers'
+                : sort === 'newest'
+                  ? 'New arrivals'
+                  : kind === 'WRISTBAND'
+                    ? 'Shop wristbands'
+                    : 'Shop all products'}
+            </h1>
+            {sort === 'best-sellers' && (
+              <p className="mt-3 text-sm text-neutral-600">Ranked by units in completed orders.</p>
+            )}
           </div>
           <form onSubmit={submit} className="flex">
             <input
@@ -66,7 +97,7 @@ export default function ShopPage() {
               onChange={(event) => setSearchInput(event.target.value)}
               name="search"
               aria-label="Search products"
-              placeholder="Search wristbands"
+              placeholder="Search products"
               className="px-4 py-3 text-sm border rounded-l border-neutral-300"
             />
             <button className="rounded-l-none button-primary">Search</button>
@@ -74,11 +105,20 @@ export default function ShopPage() {
         </div>
         <div className="flex flex-wrap gap-3 mt-8">
           <select
+            aria-label="Product type"
+            value={kind}
+            onChange={(event) => update({ kind: event.target.value, category: '' })}
+            className="min-h-11 rounded border px-3 py-2 text-sm"
+          >
+            <option value="">All products</option>
+            <option value="WRISTBAND">Wristbands</option>
+            <option value="MARKETPLACE">Other products</option>
+          </select>
+          <select
             aria-label="Filter by category"
             value={category}
             onChange={(e) => {
-              setCategory(e.target.value);
-              setPage(1);
+              update({ category: e.target.value });
             }}
             className="px-3 py-2 text-sm border rounded"
           >
@@ -93,13 +133,13 @@ export default function ShopPage() {
             aria-label="Sort products"
             value={sort}
             onChange={(e) => {
-              setSort(e.target.value);
-              setPage(1);
+              update({ sort: e.target.value });
             }}
             className="px-3 py-2 text-sm border rounded"
           >
             <option value="featured">Featured</option>
-            <option value="newest">Newest</option>
+            <option value="newest">New arrivals</option>
+            <option value="best-sellers">Best sellers</option>
             <option value="price-asc">Price: low to high</option>
             <option value="price-desc">Price: high to low</option>
             <option value="name">Name</option>
@@ -122,7 +162,9 @@ export default function ShopPage() {
                 role="status"
                 className="mt-8 rounded-xl border border-neutral-200 bg-white px-6 py-12 text-center"
               >
-                <h2 className="text-xl font-bold">No wristbands found</h2>
+                <h2 className="text-xl font-bold">
+                  {sort === 'best-sellers' ? 'No best sellers yet' : 'No products found'}
+                </h2>
                 <p className="mt-2 text-sm text-neutral-600">
                   Try another search or browse all categories.
                 </p>
@@ -130,10 +172,7 @@ export default function ShopPage() {
                   type="button"
                   className="button-secondary mt-5"
                   onClick={() => {
-                    setSearch('');
-                    setSearchInput('');
-                    setCategory('');
-                    setPage(1);
+                    update({ search: '', category: '', kind: '', sort: '' });
                   }}
                 >
                   Clear search and filters
@@ -150,7 +189,7 @@ export default function ShopPage() {
                 <button
                   className="button-secondary"
                   disabled={page <= 1}
-                  onClick={() => setPage((value) => value - 1)}
+                  onClick={() => update({ page: String(page - 1) })}
                 >
                   Previous
                 </button>
@@ -160,7 +199,7 @@ export default function ShopPage() {
                 <button
                   className="button-secondary"
                   disabled={page >= catalog.totalPages}
-                  onClick={() => setPage((value) => value + 1)}
+                  onClick={() => update({ page: String(page + 1) })}
                 >
                   Next
                 </button>
@@ -171,5 +210,13 @@ export default function ShopPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={<CatalogSkeleton />}>
+      <ShopContent />
+    </Suspense>
   );
 }

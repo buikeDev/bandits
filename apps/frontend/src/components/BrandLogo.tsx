@@ -54,7 +54,7 @@ export default function BrandLogo({
           textLength="236"
           lengthAdjust="spacing"
         >
-          PEOPLE EVENTS BRANDS
+          BANDS & VIBES
         </text>
       )}
     </svg>

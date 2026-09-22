@@ -59,7 +59,9 @@ export const productListQuerySchema = z.object({
   category: z.string().trim().max(80).optional(),
   kind: z.enum(['WRISTBAND', 'MARKETPLACE']).optional(),
   featured: z.enum(['true']).optional(),
-  sort: z.enum(['featured', 'newest', 'price-asc', 'price-desc', 'name']).default('featured'),
+  sort: z
+    .enum(['featured', 'newest', 'best-sellers', 'price-asc', 'price-desc', 'name'])
+    .default('featured'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(48).default(12),
 });

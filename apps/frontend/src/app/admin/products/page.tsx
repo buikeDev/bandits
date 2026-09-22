@@ -1,8 +1,9 @@
-﻿import { Suspense } from 'react';
+import LoadingScreen from '@/components/LoadingScreen';
+import { Suspense } from 'react';
 import CatalogueOverview from '@/admin/CatalogueOverview';
 export default function Products() {
   return (
-    <Suspense fallback={<p role="status">Loading catalogue...</p>}>
+    <Suspense fallback={<LoadingScreen embedded label="Loading catalogue..." />}>
       <CatalogueOverview />
     </Suspense>
   );

@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useState } from 'react';
 import { useAdminData } from '@/admin/useAdminData';
 import { useStaff } from '@/admin/AdminShell';
@@ -36,7 +37,7 @@ export default function StaffPage() {
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
         <section className="space-y-4 rounded-xl border bg-white p-6">
           <h2 className="text-lg font-bold">Team</h2>
-          {!data && !error && <p role="status">Loading staff…</p>}
+          {!data && !error && <LoadingScreen embedded label="Loading staff…" />}
           {error && (
             <button className={buttonClass} onClick={refresh}>
               Retry

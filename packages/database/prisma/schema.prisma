@@ -17,7 +17,8 @@ model CustomerAccount {
   id           String            @id @default(cuid())
   email        String            @unique
   name         String
-  passwordHash String
+  passwordHash String?
+  supabaseAuthId String? @unique
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   sessions     CustomerSession[]

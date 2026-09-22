@@ -5,6 +5,7 @@ import { customerAuthRouter } from './customer-auth/routes.js';
 import { catalogRouter } from './catalog/routes.js';
 import { orderRouter } from './orders/routes.js';
 import { adminRouter } from './admin/routes.js';
+import { createNewsletterRouter } from './newsletter/routes.js';
 
 type AppDependencies = {
   checkDatabase: () => Promise<void>;
@@ -33,6 +34,7 @@ export function createApp(dependencies: AppDependencies): Express {
   });
 
   app.use('/api/auth', customerAuthRouter);
+  app.use('/api/newsletter', createNewsletterRouter());
   app.use('/api/catalog', catalogRouter);
   app.use('/api/admin', adminRouter);
 

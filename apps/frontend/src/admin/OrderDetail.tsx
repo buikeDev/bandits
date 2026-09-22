@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminData } from './useAdminData';
@@ -67,7 +68,7 @@ export default function OrderDetail({ reference }: { reference: string }) {
         </button>
       </div>
     );
-  if (!data) return <p role="status">Loading order and artwork…</p>;
+  if (!data) return <LoadingScreen embedded label="Loading order and artwork…" />;
   return (
     <OrderEditor
       key={`${reference}-${data.workflow?.version ?? 0}`}

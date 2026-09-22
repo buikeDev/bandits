@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -283,14 +284,7 @@ export default function CatalogueOverview() {
                 {error} <button onClick={refresh}>Retry</button>
               </p>
             )}
-            {!data && !error && (
-              <div className="catalogue-loading" role="status">
-                Loading catalogue…
-                {[1, 2, 3, 4].map((row) => (
-                  <div key={row} />
-                ))}
-              </div>
-            )}
+            {!data && !error && <LoadingScreen embedded label="Loading catalogue…" />}
             {data && data.items.length === 0 && (
               <div className="catalogue-empty">
                 <AdminIcon name="stock" />

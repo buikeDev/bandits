@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import { useState } from 'react';
 import ColorSelect from './ColorSelect';
 import Link from 'next/link';
@@ -80,7 +81,7 @@ export default function ProductEditor({ id }: { id: string }) {
         </p>
       )}
       {message && <p role="status">{message}</p>}
-      {!product && !error && <p role="status">Loading product…</p>}
+      {!product && !error && <LoadingScreen embedded label="Loading product…" />}
       {product && (
         <section className="admin-panel" key={product.id + product.updatedAt}>
           <h2 id="product-information" className="text-xl font-semibold">

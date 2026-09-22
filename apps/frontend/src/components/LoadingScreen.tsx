@@ -1,8 +1,20 @@
 import BrandLogo from './BrandLogo';
 
-export default function LoadingScreen({ label = 'Getting things ready' }: { label?: string }) {
+export default function LoadingScreen({
+  label = 'Getting things ready',
+  embedded = false,
+}: {
+  label?: string;
+  embedded?: boolean;
+}) {
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f3f3f2] px-6">
+    <div
+      className={
+        embedded
+          ? 'grid min-h-[280px] place-items-center rounded-xl px-6 py-10 sm:min-h-[360px]'
+          : 'grid min-h-screen place-items-center bg-[#f3f3f2] px-6'
+      }
+    >
       <div role="status" className="flex flex-col items-center text-center">
         <div aria-hidden="true" className="relative mb-10 grid h-24 w-24 place-items-center">
           <div className="absolute h-16 w-16 rotate-[-25deg] rounded-[22px] border-[10px] border-black" />
@@ -18,6 +30,6 @@ export default function LoadingScreen({ label = 'Getting things ready' }: { labe
         </div>
         <span className="sr-only">Loading, please wait.</span>
       </div>
-    </main>
+    </div>
   );
 }

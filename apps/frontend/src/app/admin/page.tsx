@@ -1,4 +1,5 @@
 'use client';
+import LoadingScreen from '@/components/LoadingScreen';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAdminData } from '@/admin/useAdminData';
@@ -101,9 +102,7 @@ export default function Overview() {
           </button>
         </div>
       ) : !data ? (
-        <p role="status" className="admin-panel">
-          Loading workspace…
-        </p>
+        <LoadingScreen embedded label="Loading workspace…" />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
