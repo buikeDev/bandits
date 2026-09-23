@@ -51,8 +51,9 @@ orderRouter.get('/mine', async (req, res, next) => {
       data: {
         page,
         hasMore: rows.length > 20,
-        items: rows.slice(0, 20).map((row) => ({
+        items: rows.slice(0, 20).map(({ workflow, ...row }) => ({
           ...row,
+          deliveryMethod: workflow?.deliveryMethod,
           createdAt: row.createdAt.toISOString(),
           subtotalMinor: row.subtotalMinor.toString(),
         })),

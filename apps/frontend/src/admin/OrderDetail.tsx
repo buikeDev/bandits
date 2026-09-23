@@ -3,7 +3,7 @@ import LoadingScreen from '@/components/LoadingScreen';
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminData } from './useAdminData';
-import { adminApi, money, label, inputClass, buttonClass } from './api';
+import { adminApi, money, label, fulfilmentLabel, inputClass, buttonClass } from './api';
 import type { Order, Quote } from './types';
 import SavedOrderArtwork from '@/components/SavedOrderArtwork';
 const transitions: Record<string, string[]> = {
@@ -112,7 +112,9 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </p>
         </div>
         <div className="flex gap-2 text-sm capitalize">
-          <span className="rounded-full bg-yellow-200 px-3 py-2">{label(order.status)}</span>
+          <span className="rounded-full bg-yellow-200 px-3 py-2">
+            {fulfilmentLabel(order.status, workflow?.deliveryMethod)}
+          </span>
           <span className="rounded-full bg-white px-3 py-2">{label(order.paymentStatus)}</span>
         </div>
       </div>
@@ -168,6 +170,18 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
         </div>
         <div className="space-y-6">
           <Section title="Contact & delivery">
+            <p className="text-sm text-neutral-600">
+              Collect these details in WhatsApp. You can accept the order and reserve stock now;
+              contact details are required before dispatch or collection.
+            </p>
+            {(!workflow?.contactName ||
+              !workflow?.contactPhone ||
+              (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)) && (
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                Still to collect: contact name, phone and delivery address if sending by courier.
+                Agree on delivery or pickup and record it below.
+              </p>
+            )}
             <form
               className="space-y-3"
               onSubmit={(e) => {
@@ -410,6 +424,11 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
             </Section>
           )}
           <Section title="Payments">
+            <p className="text-sm text-neutral-600">
+              Send bank instructions through WhatsApp. Check the bank receipt before recording
+              payment here. Payment status updates from recorded payments; accepting an order does
+              not mark it paid.
+            </p>
             <p className="text-sm">
               Net received: <strong>{money(order.paidMinor)}</strong>
               {order.totalMinor !== null && (
@@ -492,11 +511,19 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               >
                 <Field title="Next status">
                   <select name="status" className={inputClass}>
-                    {transitions[order.status].map((s) => (
-                      <option value={s} key={s}>
-                        {label(s)}
-                      </option>
-                    ))}
+                    {transitions[order.status]
+                      .filter((s) => s !== 'DISPATCHED' || workflow?.deliveryMethod === 'DELIVERY')
+                      .filter(
+                        (s) =>
+                          s !== 'COMPLETED' ||
+                          order.status === 'DISPATCHED' ||
+                          workflow?.deliveryMethod === 'COLLECTION'
+                      )
+                      .map((s) => (
+                        <option value={s} key={s}>
+                          {fulfilmentLabel(s, workflow?.deliveryMethod)}
+                        </option>
+                      ))}
                   </select>
                 </Field>
                 <Field title="Reason / fulfilment record">
@@ -507,7 +534,9 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
                 </button>
               </form>
             ) : (
-              <p className="text-sm">This order is {label(order.status)}.</p>
+              <p className="text-sm">
+                This order is {fulfilmentLabel(order.status, workflow?.deliveryMethod)}.
+              </p>
             )}
             <p className="text-xs text-neutral-600">
               Confirmation reserves the selected blank wristband stock for plain and custom orders.

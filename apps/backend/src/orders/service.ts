@@ -40,9 +40,13 @@ function response(order: SavedOrder, hash: string): WhatsAppOrderDto {
       'ORDER_CHANGED'
     );
   let message = order.message;
-  // Enable only after the staff dashboard and its migration are deployed.
-  if (process.env.ADMIN_DASHBOARD_URL) {
-    const url = new URL(process.env.ADMIN_DASHBOARD_URL);
+  const dashboardOrigin =
+    process.env.ADMIN_DASHBOARD_URL ||
+    process.env.CUSTOMER_AUTH_ORIGIN ||
+    process.env.CORS_ORIGIN ||
+    (process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : undefined);
+  if (dashboardOrigin) {
+    const url = new URL(dashboardOrigin);
     if (
       !['https:', 'http:'].includes(url.protocol) ||
       url.username ||

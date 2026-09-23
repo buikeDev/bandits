@@ -11,6 +11,7 @@ export const orderRepository = {
       select: {
         reference: true,
         status: true,
+        workflow: { select: { deliveryMethod: true } },
         createdAt: true,
         message: true,
         totalQuantity: true,

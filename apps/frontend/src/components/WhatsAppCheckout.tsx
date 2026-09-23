@@ -131,7 +131,7 @@ export default function WhatsAppCheckout({
         aria-describedby="checkout-status"
         className="button-primary mt-5 w-full"
       >
-        {busy ? 'Saving your order…' : 'Continue to checkout'}
+        {busy ? 'Saving your order…' : 'Checkout on WhatsApp'}
       </button>
       <p id="checkout-status" role="status" className="mt-3 text-xs leading-5 text-neutral-600">
         {order

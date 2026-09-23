@@ -309,6 +309,35 @@ test('confirmation reserves available listed stock once and records the actor', 
   );
   assert.equal(f.reservations.length, 1);
 });
+test('acceptance reserves stock while WhatsApp contact details are still missing', async () => {
+  const f = fixture();
+  f.workflow.contactName = '';
+  f.workflow.contactPhone = '';
+  await updateOrder(
+    'ref',
+    { action: 'status', version: 0, status: 'CONFIRMED', note: 'Accepted on WhatsApp' },
+    staff
+  );
+  assert.equal(f.order.status, 'CONFIRMED');
+  assert.equal(f.reservations.length, 1);
+});
+
+test('dispatch requires contact details and verified full payment before consuming stock', async () => {
+  const f = fixture('READY');
+  f.order.snapshot.version = 2;
+  f.workflow.deliveryMethod = 'DELIVERY';
+  f.workflow.deliveryMinor = 500n;
+  f.workflow.tracking = 'Courier reference 123';
+  const action = { action: 'status', version: 0, status: 'DISPATCHED', note: 'Courier handover' };
+  await assert.rejects(updateOrder('ref', action, staff), hasCode('CONTACT_REQUIRED'));
+  assert.equal(f.order.status, 'READY');
+  f.workflow.deliveryAddress = '10 Test Street, Lagos';
+  await assert.rejects(updateOrder('ref', action, staff), hasCode('PAYMENT_REQUIRED'));
+  f.workflow.payments = [{ amountMinor: 10500n, kind: 'PAYMENT' }];
+  await updateOrder('ref', action, staff);
+  assert.equal(f.order.status, 'DISPATCHED');
+});
+
 test('confirmation refuses insufficient stock and unaccepted quotes', async () => {
   const f = fixture('AWAITING_WHATSAPP', 5);
   await assert.rejects(

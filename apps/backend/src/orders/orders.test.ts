@@ -104,7 +104,7 @@ test('prices come from the server, including tier and variant adjustment', async
   assert.match(result.message, /9,000\.00/);
   assert.match(result.message, /Printing: Plain/);
   assert.equal(result.phone, '2349137132516');
-  assert.doesNotMatch(result.message, /admin\/orders/);
+  assert.match(result.message, /Staff order details \(sign-in required\): .*\/admin\/orders\/BIT-/);
 });
 
 test('combined lines cannot exceed stock', async () => {

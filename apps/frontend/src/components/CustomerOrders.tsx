@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiRequest } from '@/auth/api';
 import Link from 'next/link';
-import { label } from '@/admin/api';
+import { fulfilmentLabel } from '@/admin/api';
 
 type History = {
   page: number;
@@ -11,6 +11,7 @@ type History = {
   items: Array<{
     reference: string;
     status: string;
+    deliveryMethod?: string;
     createdAt: string;
     message: string;
     totalQuantity: number;
@@ -75,7 +76,7 @@ export default function CustomerOrders() {
                 <div className="flex flex-wrap justify-between gap-3">
                   <p className="break-all text-xs font-bold">{order.reference}</p>
                   <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs">
-                    {label(order.status)}
+                    {fulfilmentLabel(order.status, order.deliveryMethod)}
                   </span>
                 </div>
                 <p className="mt-3 text-sm text-neutral-600">

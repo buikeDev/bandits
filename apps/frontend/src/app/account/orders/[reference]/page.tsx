@@ -5,7 +5,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SavedOrderArtwork from '@/components/SavedOrderArtwork';
 import { QuoteSummary } from '@/admin/OrderDetail';
-import { label, money } from '@/admin/api';
+import { label, money, fulfilmentLabel } from '@/admin/api';
 import type { SavedLine, Quote } from '@/admin/types';
 import { apiRequest } from '@/auth/api';
 type Detail = {
@@ -67,7 +67,7 @@ export default function Page({ params }: { params: { reference: string } }) {
           <>
             <div className="my-6 rounded-xl bg-neutral-50 p-5">
               <p className="capitalize">
-                {label(data.status)} · {label(data.paymentStatus)}
+                {fulfilmentLabel(data.status, data.deliveryMethod)} · {label(data.paymentStatus)}
               </p>
               <p className="mt-2 text-sm">Payments recorded: {money(data.paidMinor)}</p>
               {data.tracking && (

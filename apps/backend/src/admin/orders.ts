@@ -228,16 +228,6 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
         if (action.status === 'CONFIRMED') {
           if (!calculated && !workflow.acceptedQuoteId)
             throw new AppError('Prepare and accept the final quote first', 409, 'QUOTE_REQUIRED');
-          if (
-            !workflow.contactName ||
-            !workflow.contactPhone ||
-            (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)
-          )
-            throw new AppError(
-              'Complete contact and delivery details first',
-              409,
-              'CONTACT_REQUIRED'
-            );
           const quantities = new Map<string, number>();
           for (const item of items)
             if (item.product && !item.requestedColor)
@@ -274,6 +264,27 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
               data: { workflowId: workflow.id, variantId, quantity },
             });
           }
+        }
+        if (
+          action.status === 'DISPATCHED' ||
+          (action.status === 'COMPLETED' && order.status === 'READY')
+        ) {
+          if (
+            !workflow.contactName?.trim() ||
+            !workflow.contactPhone?.trim() ||
+            (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress?.trim())
+          )
+            throw new AppError(
+              'Record contact details and the delivery address before dispatch or collection',
+              409,
+              'CONTACT_REQUIRED'
+            );
+          if (paymentState(totalMinor, workflow.payments).paymentStatus !== 'PAID')
+            throw new AppError(
+              'Verify and record full payment before dispatch or collection',
+              409,
+              'PAYMENT_REQUIRED'
+            );
         }
         if (
           action.status === 'DISPATCHED' &&

@@ -27,7 +27,28 @@ export const money = (value: string | number) =>
     Number(value) / 100
   );
 export const label = (value: string) =>
-  value === 'AWAITING_WHATSAPP' ? 'New enquiry' : value.toLowerCase().replace(/_/g, ' ');
+  (
+    ({
+      AWAITING_WHATSAPP: 'New order',
+      CONFIRMED: 'Accepted',
+      IN_PRODUCTION: 'Processing',
+      DISPATCHED: 'On route',
+      PAID: 'Payment confirmed',
+      UNPAID: 'Awaiting payment',
+      PART_PAID: 'Partially paid',
+    }) as Record<string, string>
+  )[value] ?? value.toLowerCase().replace(/_/g, ' ');
+export const fulfilmentLabel = (status: string, method?: string) => {
+  if (status === 'READY')
+    return method === 'COLLECTION' ? 'Ready for pickup' : 'Ready for dispatch';
+  if (status === 'COMPLETED')
+    return method === 'COLLECTION'
+      ? 'Collected'
+      : method === 'DELIVERY'
+        ? 'Delivered'
+        : 'Completed';
+  return label(status);
+};
 export const inputClass =
   'mt-1 block min-h-11 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm';
 export const buttonClass =
