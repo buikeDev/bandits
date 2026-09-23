@@ -62,9 +62,9 @@ export default function BulkPage() {
             For quantities beyond the available stock or help planning your order, email{' '}
             <a
               className="underline"
-              href="mailto:officialbandIt@gmail.com?subject=Bulk%20wristband%20enquiry"
+              href="mailto:banditwristbandsng@gmail.com?subject=Bulk%20wristband%20enquiry"
             >
-              officialbandIt@gmail.com
+              banditwristbandsng@gmail.com
             </a>{' '}
             with your preferred material, colours, quantity and event date.
           </p>

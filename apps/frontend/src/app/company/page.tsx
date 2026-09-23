@@ -124,7 +124,7 @@ export default function CompanyPage() {
               it went.
             </p>
             <a
-              href="mailto:officialbandIt@gmail.com?subject=My%20BAND-IT%20experience"
+              href="mailto:banditwristbandsng@gmail.com?subject=My%20BAND-IT%20experience"
               className="mt-5 inline-flex min-h-11 items-center font-bold underline underline-offset-4"
             >
               Share your experience
@@ -147,10 +147,10 @@ export default function CompanyPage() {
             <div className="flex flex-col items-start justify-center">
               <p className="text-sm text-neutral-300">Email the BAND-IT team</p>
               <a
-                href="mailto:officialbandIt@gmail.com"
+                href="mailto:banditwristbandsng@gmail.com"
                 className="mt-2 inline-flex min-h-11 max-w-full items-center break-all text-lg font-bold text-yellow-400 underline underline-offset-4"
               >
-                officialbandIt@gmail.com
+                banditwristbandsng@gmail.com
               </a>
               <p className="mt-3 text-sm leading-6 text-neutral-300">
                 This opens your email app. Write your message and send it to our team.

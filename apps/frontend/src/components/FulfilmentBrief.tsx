@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 export default function FulfilmentBrief() {
   const [saved, setSaved] = useState(false);
   const [emailOpened, setEmailOpened] = useState(false);
-  const email = 'officialbandIt@gmail.com';
+  const email = 'banditwristbandsng@gmail.com';
 
   function downloadBrief(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
