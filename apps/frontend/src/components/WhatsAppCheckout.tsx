@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import type { ApiResponse, WhatsAppOrderDto } from '@bandit/shared';
 import type { DesignItem } from './DesignOrderProvider';
-import { useDesignOrder } from './DesignOrderProvider';
+import { orderItems, useDesignOrder } from './DesignOrderProvider';
 import { useAuth } from '@/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 
@@ -26,7 +26,7 @@ export default function WhatsAppCheckout({
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
   const [prepared, setPrepared] = useState<{ cart: string; order: WhatsAppOrderDto } | null>(null);
-  const cart = JSON.stringify(items);
+  const cart = JSON.stringify(orderItems(items));
   const currentCart = useRef(cart);
   currentCart.current = cart;
   const order = prepared?.cart === cart ? prepared.order : null;
@@ -65,7 +65,7 @@ export default function WhatsAppCheckout({
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, items, expectedSubtotalMinor }),
+        body: JSON.stringify({ requestId, items: orderItems(items), expectedSubtotalMinor }),
         signal: AbortSignal.timeout(30000),
       });
       if (result.status === 413)

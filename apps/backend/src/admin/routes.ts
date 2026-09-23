@@ -24,6 +24,9 @@ import {
 import { jsonSafe, orderDetail, updateOrder } from './orders.js';
 import { statuses } from './schema.js';
 import { insights } from './insights.js';
+import { notificationRoutes } from '../notifications/routes.js';
+import { fulfilmentAdmin } from '../fulfilment/routes.js';
+import { signedArtworkForStaff } from '../artwork/routes.js';
 
 export const adminRouter: ExpressRouter = Router();
 const route =
@@ -40,6 +43,38 @@ adminRouter.use((_req, res, next) => {
   next();
 });
 adminRouter.use(protectWrite);
+adminRouter.use('/fulfilment', fulfilmentAdmin);
+adminRouter.use('/orders', notificationRoutes);
+adminRouter.get('/artwork/:id', async (req, res, next) => {
+  try {
+    await currentStaff(req);
+    const artwork = await signedArtworkForStaff(req.params.id);
+    res.setHeader('Cache-Control', 'no-store');
+    res.redirect(302, artwork.url);
+  } catch (error) {
+    next(error);
+  }
+});
+adminRouter.post('/orders/:reference/returns', route(async (req) => {
+  const staff = await currentStaff(req);
+  const input = z.object({ reason: z.string().trim().min(3).max(1000), units: z.number().int().positive().max(100000), note: z.string().trim().max(2000).default('') }).parse(req.body);
+  const order = await prisma.orderEnquiry.findUnique({ where: { reference: req.params.reference } });
+  if (!order) throw new AppError('Order not found', 404, 'NOT_FOUND');
+  if (input.units > order.totalQuantity) throw new AppError('Returned units cannot exceed the order quantity.', 400, 'INVALID_RETURN');
+  const workflow = await prisma.orderWorkflow.upsert({ where: { orderId: order.id }, create: { orderId: order.id }, update: {} });
+  const created = await prisma.orderReturn.create({ data: { workflowId: workflow.id, ...input } });
+  await prisma.orderEvent.create({ data: { workflowId: workflow.id, staffId: staff.id, staffName: staff.name, action: 'return', note: `Return requested: ${input.units} units. ${input.reason}` } });
+  return created;
+}));
+adminRouter.patch('/returns/:id', route(async (req) => {
+  const staff = await currentStaff(req);
+  const input = z.object({ version: z.number().int().min(0), status: z.enum(['REQUESTED', 'APPROVED', 'RECEIVED', 'REFUNDED', 'REPLACED', 'CLOSED', 'REJECTED']), resolution: z.string().trim().max(2000), stockReceived: z.boolean() }).parse(req.body);
+  const changed = await prisma.orderReturn.updateMany({ where: { id: req.params.id, version: input.version }, data: { status: input.status, resolution: input.resolution, stockReceived: input.stockReceived, version: { increment: 1 } } });
+  if (!changed.count) throw new AppError('Return changed. Refresh and try again.', 409, 'CONFLICT');
+  const current = await prisma.orderReturn.findUniqueOrThrow({ where: { id: req.params.id }, include: { workflow: true } });
+  await prisma.orderEvent.create({ data: { workflowId: current.workflowId, staffId: staff.id, staffName: staff.name, action: 'return', note: `Return ${input.status.toLowerCase()}: ${input.resolution || 'No note provided.'}` } });
+  return current;
+}));
 adminRouter.get(
   '/insights',
   route(async (req) => {

@@ -111,6 +111,16 @@ export function ImagePicker({
         />
       </label>
       {busy && <p role="status">Uploading… Wait before saving.</p>}
+      {url && (
+        <div className="flex flex-wrap gap-3">
+          {url.split(/\n/).filter(Boolean).map((image, index) => (
+            <figure key={image} className="relative w-24">
+              <img src={image} alt={`Product upload ${index + 1}`} className="h-20 w-24 rounded border object-cover" />
+              <button type="button" className="mt-1 text-xs underline" onClick={() => setUrl((old) => old.split(/\n/).filter((entry) => entry !== image).join('\n'))}>Remove</button>
+            </figure>
+          ))}
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-sm text-red-700">
           {error}

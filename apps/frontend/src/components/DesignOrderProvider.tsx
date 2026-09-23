@@ -27,6 +27,9 @@ export type DesignItem = {
   };
 };
 const key = 'bandit-design-order-v1';
+const storedItems = (items: DesignItem[]) =>
+  items.map((item) => ({ ...item, logos: item.logos?.map(({ src: _src, ...logo }) => logo) }));
+export const orderItems = (items: DesignItem[]) => storedItems(items);
 export function isDesignItem(value: unknown): value is DesignItem {
   if (!value || typeof value !== 'object') return false;
   const item = value as Record<string, unknown>;
@@ -42,7 +45,7 @@ export function isDesignItem(value: unknown): value is DesignItem {
       : ['Tyvek', 'Vinyl', 'Silicone', 'Fabric'].includes(String(item.material))) &&
     /^#[0-9a-f]{6}$/i.test(String(item.color)) &&
     /^#[0-9a-f]{6}$/i.test(String(item.ink)) &&
-    (item.logo === '' || /^data:image\/(png|jpeg|webp);base64,/.test(String(item.logo))) &&
+    item.logo === '' &&
     (item.logos === undefined ||
       (Array.isArray(item.logos) &&
         item.logos.every(isLogoLayer) &&
@@ -83,6 +86,21 @@ export function DesignOrderProvider({ children }: { children: React.ReactNode })
       if (!Array.isArray(stored) || !stored.every(isDesignItem)) throw new Error();
       current.current = stored;
       setItems(stored);
+      const artworkIds = stored.flatMap((item) => item.logos?.map((logo) => logo.artworkId).filter(Boolean) ?? []);
+      if (artworkIds.length) {
+        void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? '/api'}/artwork/previews`, {
+          method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: artworkIds }),
+        })
+          .then((response) => response.json())
+          .then((result: { success?: boolean; data?: { id: string; url: string; name: string }[] }) => {
+            if (!result.success || !result.data) return;
+            const previews = new Map(result.data.map((asset) => [asset.id, asset]));
+            const hydrated = stored.map((item) => ({ ...item, logos: item.logos?.map((logo) => ({ ...logo, src: logo.artworkId ? previews.get(logo.artworkId)?.url ?? '' : '', name: logo.artworkId ? previews.get(logo.artworkId)?.name ?? logo.name : logo.name })) }));
+            current.current = hydrated;
+            setItems(hydrated);
+          });
+      }
     } catch {
       setError(
         'Your saved designs could not be loaded. Please check that browser storage is available.'
@@ -93,7 +111,7 @@ export function DesignOrderProvider({ children }: { children: React.ReactNode })
 
   function save(next: DesignItem[]) {
     try {
-      localStorage.setItem(key, JSON.stringify(next));
+      localStorage.setItem(key, JSON.stringify(storedItems(next)));
       current.current = next;
       setItems(next);
       setError('');

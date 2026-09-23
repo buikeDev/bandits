@@ -183,6 +183,7 @@ model OrderEnquiry {
   id            String           @id @default(cuid())
   requestId     String           @unique
   requestHash   String
+  trackingTokenHash String @default("")
   reference     String           @unique
   status        String           @default("AWAITING_WHATSAPP")
   currency      String           @default("NGN")
@@ -208,6 +209,7 @@ model StaffSession {
 }
 
 model OrderWorkflow {
+  notificationEmail String @default("")
   deliveryMinor   BigInt?
   id              String             @id @default(cuid())
   orderId         String             @unique
@@ -222,8 +224,75 @@ model OrderWorkflow {
   quotes          OrderQuote[]
   payments        OrderPayment[]
   events          OrderEvent[]
+  returnCases     OrderReturn[]
   reservations    StockReservation[]
   updatedAt       DateTime           @updatedAt
+}
+
+model OrderReturn {
+  id String @id @default(cuid())
+  workflowId String
+  workflow OrderWorkflow @relation(fields: [workflowId], references: [id])
+  status String @default("REQUESTED")
+  reason String
+  units Int
+  note String @default("")
+  resolution String @default("")
+  stockReceived Boolean @default(false)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([workflowId, status])
+}
+
+model OrderNotification {
+  id String @id @default(cuid())
+  eventKey String @unique
+  reference String
+  kind String
+  recipient String
+  payload Json
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  firstAttemptAt DateTime?
+  leaseToken String?
+  providerId String?
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, availableAt])
+  @@index([reference, createdAt])
+}
+
+model FulfilmentEnquiry {
+  id String @id @default(cuid())
+  requestId String @unique
+  requestHash String
+  reference String @unique
+  name String
+  business String
+  email String
+  phone String
+  monthlyOrders String
+  requirements String
+  status String @default("NEW")
+  version Int @default(0)
+  history Json @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, createdAt])
+}
+
+model ArtworkAsset {
+  id String @id @default(cuid())
+  storageKey String @unique
+  ownerHash String
+  originalName String
+  contentType String
+  byteSize Int
+  createdAt DateTime @default(now())
+  @@index([ownerHash, createdAt])
 }
 
 model OrderQuote {

@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import type { DesignItem } from './DesignOrderProvider';
+import { orderItems, type DesignItem } from './DesignOrderProvider';
 type Price = {
   lines: {
     unitMinor: number;
@@ -11,7 +11,7 @@ type Price = {
   subtotalMinor: number;
 };
 export function useOrderPrice(items: DesignItem[]) {
-  const key = JSON.stringify(items);
+  const key = JSON.stringify(orderItems(items));
   const [result, setResult] = useState<{ key: string; data?: Price; error?: string }>({ key: '' });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -32,7 +32,9 @@ export function useOrderPrice(items: DesignItem[]) {
           if (!response.ok || !body.success) throw new Error(body.error || 'Pricing unavailable');
           return body.data as Price;
         })
-        .then((data) => setResult({ key, data }))
+        .then((data) => {
+          if (!controller.signal.aborted) setResult({ key, data });
+        })
         .catch((error) => {
           if (!controller.signal.aborted)
             setResult({

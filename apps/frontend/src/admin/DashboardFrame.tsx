@@ -21,6 +21,7 @@ export default function DashboardFrame({
   const links: { href: string; title: string; icon: IconName }[] = [
     { href: '/admin', title: 'Overview', icon: 'home' },
     { href: '/admin/orders', title: 'Orders', icon: 'orders' },
+    { href: '/admin/fulfilment', title: 'Fulfilment', icon: 'orders' },
     ...(staff?.role === 'ADMIN'
       ? [
           { href: '/admin/products', title: 'Catalogue & stock', icon: 'stock' as const },

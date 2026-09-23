@@ -61,14 +61,20 @@ export default function LogoLayerControls(p: Props) {
             image.src = src;
           });
           if (!mounted.current) return;
-          if (used + src.length > 3000000)
-            throw new Error('Artwork storage is full. Use smaller image files.');
           if (aspect > 10000) throw new Error('Image proportions are too extreme.');
-          used += src.length;
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? '/api'}/artwork`, {
+            method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: file.name, data: src }),
+          });
+          const result = (await response.json().catch(() => null)) as { success?: boolean; data?: { id: string; name: string; url: string }; error?: string } | null;
+          if (!response.ok || !result?.success || !result.data)
+            throw new Error(result?.error ?? 'Artwork upload failed. Please try again.');
+          used += 1;
           added.push({
             id: crypto.randomUUID(),
-            name: file.name,
-            src,
+            name: result.data.name,
+            src: result.data.url,
+            artworkId: result.data.id,
             aspect,
             x: ((p.layers.length + added.length) * 25) % 101,
             y: 50,
@@ -193,13 +199,6 @@ export default function LogoLayerControls(p: Props) {
             <button
               type="button"
               onClick={() => {
-                if (
-                  p.layers.reduce((sum, layer) => sum + layer.src.length, 0) + selected.src.length >
-                  3000000
-                ) {
-                  setError('Artwork storage is full. Use smaller image files before duplicating.');
-                  return;
-                }
                 const duplicate = {
                   ...selected,
                   id: crypto.randomUUID(),

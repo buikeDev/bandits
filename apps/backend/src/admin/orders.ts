@@ -5,6 +5,7 @@ import type { Staff } from './auth.js';
 import { actionSchema, paymentState, transitions } from './schema.js';
 
 import { adminRepository, workflowInclude } from './repository.js';
+import { enqueueOrderNotification } from '../notifications/queue.js';
 export const jsonSafe = <T>(value: T): unknown =>
   JSON.parse(JSON.stringify(value, (_key, v) => (typeof v === 'bigint' ? v.toString() : v)));
 export function snapshotLines(snapshot: Prisma.JsonValue): OrderLine[] {
@@ -344,6 +345,31 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
           note,
         },
       });
+      if (action.action === 'status') {
+        await enqueueOrderNotification(
+          tx,
+          reference,
+          action.status,
+          `status:${order.id}:${action.version}`
+        );
+      }
+      if (
+        action.action === 'payment' &&
+        action.kind === 'PAYMENT' &&
+        (!calculated || deliveryMinor !== null) &&
+        paymentState(totalMinor, workflow.payments).paymentStatus !== 'PAID' &&
+        paymentState(totalMinor, [
+          ...workflow.payments,
+          { amountMinor: BigInt(action.amountMinor), kind: 'PAYMENT' },
+        ]).paymentStatus === 'PAID'
+      ) {
+        await enqueueOrderNotification(
+          tx,
+          reference,
+          'PAYMENT_CONFIRMED',
+          `payment:${order.id}:${action.version}`
+        );
+      }
     });
   } catch (error) {
     const code = (error as { code?: string }).code;

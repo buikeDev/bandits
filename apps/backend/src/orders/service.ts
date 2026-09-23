@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { ProductDetailDto, WhatsAppOrderDto } from '@bandit/shared';
 import { AppError } from '../errors/app-error.js';
 import { orderRequestSchema, type OrderRequest, type OrderLine } from './schema.js';
@@ -15,8 +15,10 @@ export type OrderSnapshot = SavedOrder & {
   totalQuantity: number;
   subtotalMinor: number;
   quoteRequired: boolean;
+  trackingTokenHash: string;
 };
 export type OrderDependencies = {
+  beforeCreate?: () => Promise<void>;
   fee?: () => Promise<number>;
   resolve?: (
     item: OrderRequest['items'][number]
@@ -24,6 +26,7 @@ export type OrderDependencies = {
   product: (slug: string) => Promise<ProductDetailDto>;
   find: (requestId: string) => Promise<SavedOrder | null>;
   save: (order: OrderSnapshot) => Promise<SavedOrder>;
+  artwork?: (ids: string[]) => Promise<void>;
 };
 
 const money = (minor: number) =>
@@ -72,6 +75,7 @@ export async function prepareOrder(
     .digest('hex');
   const previous = await dependencies.find(request.requestId);
   if (previous) return response(previous, hash);
+  await dependencies.beforeCreate?.();
   const { lines, subtotalMinor, totalQuantity } = await priceOrder(request, dependencies);
   if (
     request.expectedSubtotalMinor !== undefined &&
@@ -80,6 +84,9 @@ export async function prepareOrder(
     throw new AppError('Prices changed. Refresh your order before checkout.', 409, 'PRICE_CHANGED');
   const quoteRequired = false;
   const reference = `BIT-${randomUUID().toUpperCase()}`;
+  const trackingToken = randomBytes(32).toString('base64url');
+  const trackingOrigin = process.env.CUSTOMER_AUTH_ORIGIN || process.env.CORS_ORIGIN || 'http://localhost:3000';
+  const trackingUrl = `${new URL(trackingOrigin).origin}/track/${reference}?token=${encodeURIComponent(trackingToken)}`;
   const message = [
     'Hello BAND-IT, I would like to place this order.',
     '',
@@ -112,6 +119,8 @@ export async function prepareOrder(
     'Delivery fee: To be confirmed',
     'Payment: Not paid',
     'Please confirm availability, delivery and payment details.',
+    `Private order tracking: ${trackingUrl}`,
+    `Private order tracking: ${trackingUrl}`,
   ].join('\n');
   const saved = await dependencies.save({
     customerId,
@@ -123,11 +132,15 @@ export async function prepareOrder(
     totalQuantity,
     subtotalMinor,
     quoteRequired,
+    trackingTokenHash: createHash('sha256').update(trackingToken).digest('hex'),
   });
   return response(saved, hash);
 }
 
 export async function priceOrder(request: OrderRequest, dependencies: OrderDependencies) {
+  await dependencies.artwork?.(
+    request.items.flatMap((item) => item.logos?.map((logo) => logo.artworkId) ?? [])
+  );
   const fee = (await dependencies.fee?.()) ?? 10000;
   if (!Number.isSafeInteger(fee) || fee < 0)
     throw new AppError('Pricing unavailable', 503, 'PRICE_UNAVAILABLE');

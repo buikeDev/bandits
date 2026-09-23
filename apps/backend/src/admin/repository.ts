@@ -4,6 +4,7 @@ export const workflowInclude = {
   payments: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
   events: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
   reservations: true,
+  returnCases: { orderBy: { createdAt: 'desc' as const } },
 };
 export const adminRepository = {
   session: (tokenHash: string) =>

@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
+    "notifications:worker": "node dist/notifications/run.js",
     "admin:bootstrap": "tsx src/admin/bootstrap.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",

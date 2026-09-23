@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
 const text = z.string().max(200);
-const image = z
-  .string()
-  .max(1500000)
-  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/);
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i);
 export const orderRequestSchema = z.object({
   requestId: z.string().uuid(),
@@ -20,13 +16,13 @@ export const orderRequestSchema = z.object({
         message: z.string().max(1000),
         subtitle: z.string().max(500),
         font: text,
-        logo: z.union([z.literal(''), image]),
+        logo: z.literal(''),
         logos: z
           .array(
             z.object({
               id: text,
               name: text,
-              src: image,
+              artworkId: z.string().cuid(),
               x: z.number().min(0).max(100),
               y: z.number().min(0).max(100),
               size: z.number().min(5).max(100),

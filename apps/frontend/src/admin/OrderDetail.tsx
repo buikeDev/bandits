@@ -1,11 +1,13 @@
 'use client';
 import LoadingScreen from '@/components/LoadingScreen';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAdminData } from './useAdminData';
 import { adminApi, money, label, fulfilmentLabel, inputClass, buttonClass } from './api';
 import type { Order, Quote } from './types';
 import SavedOrderArtwork from '@/components/SavedOrderArtwork';
+import OrderNotifications from './OrderNotifications';
+import OrderReturns from './OrderReturns';
 const transitions: Record<string, string[]> = {
   AWAITING_WHATSAPP: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['IN_PRODUCTION', 'READY', 'CANCELLED'],
@@ -80,16 +82,20 @@ export default function OrderDetail({ reference }: { reference: string }) {
 function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const workflow = order.workflow;
   const quote = workflow?.quotes[0];
   const accepted = workflow?.quotes.find((q) => q.id === workflow.acceptedQuoteId);
   const version = workflow?.version ?? 0;
   const save = async (body: Record<string, unknown>) => {
     if (busy) return;
+    if (body.action === 'payment' && body.kind === 'REFUND' && !window.confirm('Record this refund? Confirm the bank transfer and amount first.')) return;
+    if (body.action === 'status' && body.status === 'CANCELLED' && !window.confirm('Cancel this order and release reserved stock? This cannot be undone.')) return;
     setBusy(true);
     setError('');
     try {
       await adminApi(`/orders/${order.reference}/actions`, { ...body, version });
+      setNotice(body.action === 'status' ? 'Order progress updated.' : 'Changes saved.');
       refresh();
     } catch (cause) {
       setError((cause as Error).message);
@@ -97,6 +103,15 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
       setBusy(false);
     }
   };
+  const blockers: { target: string; text: string }[] = [];
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && !workflow?.contactName) blockers.push({ target: 'contact-details', text: 'Add the customer contact details.' });
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && workflow?.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress) blockers.push({ target: 'contact-details', text: 'Add the delivery address.' });
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && workflow?.deliveryMethod === 'DELIVERY' && !workflow.tracking) blockers.push({ target: 'contact-details', text: 'Add courier or tracking reference.' });
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && order.paymentStatus !== 'PAID') blockers.push({ target: 'payments', text: 'Verify and record full payment.' });
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { if (busy) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
+  }, [busy]);
   const minor = (form: FormData, key: string) => Math.round(Number(form.get(key)) * 100);
   return (
     <main>
@@ -126,6 +141,8 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </button>
         </div>
       )}
+      {notice && <p role="status" className="mb-5 rounded-xl bg-green-50 p-4 text-sm text-green-900">{notice}</p>}
+      {blockers.length > 0 && <section className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4"><h2 className="font-bold">Before this order can move forward</h2><ul className="mt-2 space-y-2 text-sm">{blockers.map((blocker) => <li key={blocker.text}><button className="underline" onClick={() => document.getElementById(blocker.target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>{blocker.text}</button></li>)}</ul></section>}
       <div className="grid items-start gap-6 lg:grid-cols-[1.15fr_1fr]">
         <div className="space-y-6">
           <Section title="Original order">
@@ -169,7 +186,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </Section>
         </div>
         <div className="space-y-6">
-          <Section title="Contact & delivery">
+          <div id="contact-details"><Section title="Contact & delivery">
             <p className="text-sm text-neutral-600">
               Collect these details in WhatsApp. You can accept the order and reserve stock now;
               contact details are required before dispatch or collection.
@@ -242,7 +259,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
                 Save details
               </button>
             </form>
-          </Section>
+          </Section></div>
           {order.calculated ? (
             <Section title="Calculated order price">
               <p>
@@ -423,7 +440,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               )}
             </Section>
           )}
-          <Section title="Payments">
+          <div id="payments"><Section title="Payments">
             <p className="text-sm text-neutral-600">
               Send bank instructions through WhatsApp. Check the bank receipt before recording
               payment here. Payment status updates from recorded payments; accepting an order does
@@ -494,7 +511,9 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
                 </li>
               ))}
             </ul>
-          </Section>
+          </Section></div>
+          <OrderNotifications reference={order.reference} version={version} />
+          <OrderReturns reference={order.reference} totalQuantity={order.totalQuantity} items={workflow?.returnCases ?? []} refresh={refresh} />
           <Section title="Order progress">
             {transitions[order.status]?.length ? (
               <form

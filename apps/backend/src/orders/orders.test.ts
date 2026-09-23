@@ -54,6 +54,7 @@ function setup() {
     dependencies: {
       product: async () => product,
       fee: async () => 10000,
+      artwork: async () => undefined,
       resolve: async () => ({ product, variantId: 'v1' }),
       find: async (id: string) => saved.get(id) ?? null,
       save: async (order: OrderSnapshot) => {
@@ -130,7 +131,7 @@ test('custom artwork persists and customisation is charged per band', async () =
   const logo = {
     id: 'logo',
     name: 'Client artwork',
-    src: 'data:image/png;base64,aGVsbG8=',
+    artworkId: 'clx6mra90000008l4fqoo0j20',
     x: 20,
     y: 30,
     size: 40,
@@ -150,7 +151,7 @@ test('custom artwork persists and customisation is charged per band', async () =
   assert.deepEqual(snapshot.snapshot.items[1].logos, [logo]);
   assert.match(result.message, /Team & friends 🎉/);
   assert.match(result.message, /not attached to WhatsApp/);
-  assert.doesNotMatch(result.message, /base64/);
+  assert.doesNotMatch(JSON.stringify(snapshot.snapshot), /base64/);
   assert.equal(
     new URL(
       `https://wa.me/${result.phone}?text=${encodeURIComponent(result.message)}`
@@ -169,6 +170,26 @@ test('unlisted colours cannot be priced or saved', async () => {
     /available colour/
   );
   assert.equal(saved.size, 0);
+});
+
+test('saved retries do not consume new-order quota', async () => {
+  const { dependencies } = setup();
+  let checks = 0;
+  const guarded = {
+    ...dependencies,
+    beforeCreate: async () => {
+      checks++;
+      if (checks > 1) throw new Error('quota exhausted');
+    },
+  };
+  const input = { requestId: randomUUID(), items: [line] };
+  const first = await prepareOrder(input, guarded);
+  assert.equal((await prepareOrder(input, guarded)).reference, first.reference);
+  assert.equal(checks, 1);
+  await assert.rejects(
+    prepareOrder({ ...input, requestId: randomUUID() }, guarded),
+    /quota exhausted/
+  );
 });
 
 test('retry keeps one reference; changed cart cannot reuse the same token', async () => {

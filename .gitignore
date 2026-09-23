@@ -28,6 +28,7 @@ packages/database/generated/
 *.pem
 *.key
 *.crt
+.env.example
 
 # Logs
 logs/
@@ -53,7 +54,7 @@ blob-report/
 # Editors
 # Local customer portal checklist
 /customer-portal-todo.md
-
+/docs
 # Local agent skill instructions (all filename casing)
 [Ss][Kk][Ii][Ll][Ll].[Mm][Dd]
 .agents

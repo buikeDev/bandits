@@ -67,5 +67,6 @@ export type Order = {
     }[];
     events: { id: string; staffName: string; action: string; note: string; createdAt: string }[];
     reservations: { id: string; variantId: string; quantity: number; state: string }[];
+    returnCases: { id: string; status: string; reason: string; units: number; note: string; resolution: string; stockReceived: boolean; version: number; createdAt: string }[];
   };
 };

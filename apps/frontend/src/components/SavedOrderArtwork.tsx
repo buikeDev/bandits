@@ -32,6 +32,10 @@ export default function SavedOrderArtwork({ items }: { items: SavedLine[] }) {
                 },
               ]
             : [];
+        const previewLogos = logos.map((logo) => ({
+          ...logo,
+          src: logo.artworkId ? `/api/admin/artwork/${encodeURIComponent(logo.artworkId)}` : logo.src,
+        }));
         return (
           <article
             key={`${item.id}-${index}`}
@@ -45,7 +49,7 @@ export default function SavedOrderArtwork({ items }: { items: SavedLine[] }) {
                 message={item.message}
                 subtitle={item.subtitle}
                 font={item.font}
-                logos={logos}
+                logos={previewLogos}
                 showBrand={custom}
               />
             </div>
@@ -92,8 +96,10 @@ export default function SavedOrderArtwork({ items }: { items: SavedLine[] }) {
               {logos.map((logo) => (
                 <a
                   key={logo.id}
-                  href={logo.src}
+                  href={logo.artworkId ? `/api/admin/artwork/${encodeURIComponent(logo.artworkId)}` : logo.src}
                   download={`${logo.name.replace(/[^a-z0-9._-]/gi, '_') || 'artwork'}.png`}
+                  target={logo.artworkId ? '_blank' : undefined}
+                  rel={logo.artworkId ? 'noreferrer' : undefined}
                   className="inline-flex min-h-11 items-center pr-4 text-sm underline"
                 >
                   Download {logo.name}

@@ -8,7 +8,7 @@ import { config as loadEnvironment } from 'dotenv';
 loadEnvironment({ path: '../../packages/database/.env' });
 
 test(
-  'checkout API persists artwork, retries safely, and exposes no public order lookup',
+  'checkout API persists orders, retries safely, and exposes no public order lookup',
   { skip: !process.env.RUN_ORDER_DB_TEST },
   async () => {
     const { prisma } = await import('@bandit/database');
@@ -27,11 +27,11 @@ test(
           colorName: 'Yellow',
           color: '#ffcc00',
           ink: '#000000',
-          message: 'CHECKOUT TEST — NOT AN ORDER',
+          message: 'CHECKOUT TEST â€” NOT AN ORDER',
           subtitle: '',
           font: 'Arial',
           quantity: 10,
-          logo: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aRZkAAAAASUVORK5CYII=',
+          logo: '',
         },
       ],
     };
@@ -54,7 +54,7 @@ test(
       assert.equal(saved.quoteRequired, false);
       assert.equal(saved.subtotalMinor, 200000n);
       assert.equal(saved.totalQuantity, 10);
-      assert.match(JSON.stringify(saved.snapshot), /data:image\/png;base64/);
+      assert.doesNotMatch(JSON.stringify(saved.snapshot), /data:image\/[^,]+;base64/);
       assert.equal((await fetch(`${origin}/api/orders/${saved.id}`)).status, 404);
     } finally {
       await prisma.orderEnquiry.deleteMany({ where: { requestId } });

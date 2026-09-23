@@ -2,6 +2,7 @@ export type LogoLayer = {
   id: string;
   name: string;
   src: string;
+  artworkId?: string;
   x: number;
   y: number;
   size: number;
@@ -28,8 +29,9 @@ export function isLogoLayer(value: unknown): value is LogoLayer {
   return (
     typeof layer.id === 'string' &&
     typeof layer.name === 'string' &&
-    typeof layer.src === 'string' &&
-    /^data:image\/(png|jpeg|webp);base64,/.test(layer.src) &&
+    (layer.src === undefined ||
+      (typeof layer.src === 'string' &&
+        (layer.src === '' || /^https:\/\//.test(layer.src) || /^data:image\/(png|jpeg|webp);base64,/.test(layer.src)))) &&
     ['x', 'y', 'size', 'aspect'].every(
       (key) => typeof layer[key] === 'number' && Number.isFinite(layer[key])
     ) &&
