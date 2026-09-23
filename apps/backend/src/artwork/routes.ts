@@ -45,7 +45,7 @@ async function signed(storageKey: string) {
   return `${base.origin}/storage/v1${result.signedURL}`;
 }
 
-export const artworkRouter = Router();
+export const artworkRouter: ReturnType<typeof Router> = Router();
 artworkRouter.post('/', async (req, res, next) => {
   try {
     const value = input.parse(req.body);

@@ -56,6 +56,7 @@ export const actionSchema = z.discriminatedUnion('action', [
     amountMinor: minor.positive(),
     kind: z.enum(['PAYMENT', 'REFUND']),
     reference: z.string().trim().min(3).max(150),
+    reason: z.string().trim().max(1000).default(''),
   }),
 ]);
 export type OrderAction = z.infer<typeof actionSchema>;

@@ -35,20 +35,20 @@ export default function CustomPage() {
   const [choice, setChoice] = useState('');
   const [reload, setReload] = useState(0);
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     setCatalogError('');
-    getDesignOptions()
+    getDesignOptions(controller.signal)
       .then((data) => {
-        if (active) {
+        if (!controller.signal.aborted) {
           setCatalog(data.products);
           setFee(data.customizationFeeMinor);
         }
       })
       .catch((error) => {
-        if (active) setCatalogError(error.message);
+        if (!controller.signal.aborted) setCatalogError(error.message);
       });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [reload]);
   const options = catalog.flatMap((product) =>

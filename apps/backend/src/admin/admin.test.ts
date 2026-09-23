@@ -400,8 +400,8 @@ test('refunds cannot exceed receipts and overpayments are rejected', async () =>
     await assert.rejects(
       updateOrder(
         'ref',
-        { action: 'payment', version: 0, kind, amountMinor: 6000, reference: 'BANK-001' },
-        staff
+        { action: 'payment', version: 0, kind, amountMinor: 6000, reference: 'BANK-001', reason: kind === 'REFUND' ? 'Customer cancellation' : '' },
+        kind === 'REFUND' ? { ...staff, role: 'ADMIN' } : staff
       ),
       hasCode('INVALID_PAYMENT')
     );

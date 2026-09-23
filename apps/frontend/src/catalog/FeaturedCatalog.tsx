@@ -12,12 +12,17 @@ export function FeaturedCatalog() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
     getProducts(
-      new URLSearchParams({ kind: 'WRISTBAND', sort: 'featured', featured: 'true', limit: '4' })
+      new URLSearchParams({ kind: 'WRISTBAND', sort: 'featured', featured: 'true', limit: '4' }),
+      controller.signal
     )
       .then((result) => setProducts(result.items))
       .catch(() => undefined)
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, []);
 
   if (!loading && !products.length) return null;

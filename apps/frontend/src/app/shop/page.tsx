@@ -39,27 +39,30 @@ function ShopContent() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    getCategories()
+    const controller = new AbortController();
+    getCategories(controller.signal)
       .then(setCategories)
       .catch(() => undefined);
+    return () => controller.abort();
   }, []);
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     const query = new URLSearchParams({ sort, page: String(page), limit: '12' });
     if (kind) query.set('kind', kind);
     if (search) query.set('search', search);
     if (category) query.set('category', category);
     setError('');
     setCatalog(null);
-    getProducts(query)
+    getProducts(query, controller.signal)
       .then((result) => {
-        if (active) setCatalog(result);
+        if (!controller.signal.aborted) setCatalog(result);
       })
       .catch((cause) => {
-        if (active) setError(cause instanceof Error ? cause.message : 'Unable to load products');
+        if (!controller.signal.aborted)
+          setError(cause instanceof Error ? cause.message : 'Unable to load products');
       });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [search, category, sort, page, kind]);
 

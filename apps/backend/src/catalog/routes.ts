@@ -21,7 +21,8 @@ catalogRouter.get('/design-options', async (_req, res, next) => {
       orderBy: { name: 'asc' },
     });
     const products = await Promise.all(rows.map((p) => catalogService.getProduct(p.slug)));
-    res.setHeader('Cache-Control', 'no-store');
+    // The checkout price endpoint remains the source of truth; this is only the custom-design picker.
+    res.setHeader('Cache-Control', 'public, max-age=20, stale-while-revalidate=100');
     res.json({ success: true, data: { products, ...(await pricingSettings()) } });
   } catch (error) {
     next(error);

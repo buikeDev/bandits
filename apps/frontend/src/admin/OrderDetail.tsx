@@ -8,6 +8,7 @@ import type { Order, Quote } from './types';
 import SavedOrderArtwork from '@/components/SavedOrderArtwork';
 import OrderNotifications from './OrderNotifications';
 import OrderReturns from './OrderReturns';
+import { useStaff } from './AdminShell';
 const transitions: Record<string, string[]> = {
   AWAITING_WHATSAPP: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['IN_PRODUCTION', 'READY', 'CANCELLED'],
@@ -80,6 +81,7 @@ export default function OrderDetail({ reference }: { reference: string }) {
   );
 }
 function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) {
+  const staff = useStaff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -89,7 +91,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
   const version = workflow?.version ?? 0;
   const save = async (body: Record<string, unknown>) => {
     if (busy) return;
-    if (body.action === 'payment' && body.kind === 'REFUND' && !window.confirm('Record this refund? Confirm the bank transfer and amount first.')) return;
+    if (body.action === 'payment' && body.kind === 'REFUND' && !window.confirm(`Record a refund of ${money(Number(body.amountMinor))} for ${order.reference}? Confirm the bank transfer, amount, and reason first.`)) return;
     if (body.action === 'status' && body.status === 'CANCELLED' && !window.confirm('Cancel this order and release reserved stock? This cannot be undone.')) return;
     setBusy(true);
     setError('');
@@ -466,13 +468,14 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
                   kind: form.get('kind'),
                   amountMinor: minor(form, 'amount'),
                   reference: form.get('reference'),
+                  reason: form.get('reason'),
                 });
               }}
             >
               <Field title="Record type">
                 <select name="kind" className={inputClass}>
                   <option value="PAYMENT">Payment received</option>
-                  <option value="REFUND">Refund issued</option>
+                  <option value="REFUND" disabled={staff?.role !== 'ADMIN'}>Refund issued (administrator only)</option>
                 </select>
               </Field>
               <Field title="Amount (NGN)">
@@ -493,6 +496,9 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
                   maxLength={150}
                   className={inputClass}
                 />
+              </Field>
+              <Field title="Refund reason (required for refunds)">
+                <textarea name="reason" maxLength={1000} className={inputClass} />
               </Field>
               <p className="text-xs text-neutral-600">
                 Record only verified receipts or refunds. This does not move money.

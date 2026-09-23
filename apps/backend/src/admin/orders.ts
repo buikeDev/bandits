@@ -2,6 +2,7 @@ import type { Prisma } from '@bandit/database';
 import { AppError } from '../errors/app-error.js';
 import type { OrderLine } from '../orders/schema.js';
 import type { Staff } from './auth.js';
+import { requireAdmin } from './auth.js';
 import { actionSchema, paymentState, transitions } from './schema.js';
 
 import { adminRepository, workflowInclude } from './repository.js';
@@ -182,6 +183,10 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
         note = `Customer accepted quote: ${action.note}`;
       }
       if (action.action === 'payment') {
+        if (action.kind === 'REFUND') {
+          requireAdmin(staff);
+          if (!action.reason) throw new AppError('Record a reason for the refund.', 400, 'REFUND_REASON_REQUIRED');
+        }
         if (
           calculated &&
           action.kind === 'PAYMENT' &&
@@ -215,7 +220,10 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
             reference: action.reference,
           },
         });
-        note = `${action.kind}: ${action.amountMinor / 100} NGN. Reference: ${action.reference}`;
+        note = `${action.kind}: ${action.amountMinor / 100} NGN. Reference: ${action.reference}${action.kind === 'REFUND' ? `. Reason: ${action.reason}` : ''}`;
+        if (action.kind === 'REFUND') await tx.adminAudit.create({
+          data: { staffId: staff.id, action: 'REFUND_RECORDED', targetId: order.id, details: { reference, amountMinor: action.amountMinor, bankReference: action.reference, reason: action.reason } },
+        });
       }
       if (action.action === 'status') {
         if (!transitions[order.status]?.includes(action.status))

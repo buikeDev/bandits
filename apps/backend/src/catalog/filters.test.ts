@@ -14,7 +14,9 @@ test('shop links pass type and ordering filters to the catalogue and reject unsu
   await new Promise<void>((resolve) => server.once('listening', resolve));
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}/api/catalog/products`;
   try {
-    assert.equal((await fetch(base + '?kind=WRISTBAND')).status, 200);
+    const wristbands = await fetch(base + '?kind=WRISTBAND');
+    assert.equal(wristbands.status, 200);
+    assert.match(wristbands.headers.get('cache-control') ?? '', /max-age=20/);
     assert.equal(query?.kind, 'WRISTBAND');
     assert.equal((await fetch(base)).status, 200);
     assert.equal(query?.kind, undefined);
