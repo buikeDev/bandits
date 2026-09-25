@@ -36,6 +36,19 @@ test('OAuth exchange is browser-bound and never merges an existing email', async
   const server = createApp({ checkDatabase: async () => {} }).listen(0);
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/auth`;
   try {
+    const providers = await fetch(`${base}/oauth/providers`);
+    assert.deepEqual(await providers.json(), {
+      success: true,
+      data: { google: true, apple: false },
+    });
+    process.env.SUPABASE_PUBLISHABLE_KEY = '';
+    const missingKey = await fetch(`${base}/oauth/providers`);
+    assert.deepEqual(await missingKey.json(), {
+      success: true,
+      data: { google: false, apple: false },
+      configuration: 'SUPABASE_PUBLISHABLE_KEY_MISSING',
+    });
+    process.env.SUPABASE_PUBLISHABLE_KEY = 'test-key';
     globalThis.fetch = async (input, init) => {
       const url = String(input);
       if (url.startsWith('https://test.supabase.co')) {

@@ -13,13 +13,23 @@ const cookieOptions = (): CookieOptions => ({
   path: '/api/auth/oauth',
 });
 function settings() {
-  const url = new URL(process.env.SUPABASE_URL ?? '');
-  const origin = new URL(process.env.CUSTOMER_AUTH_ORIGIN ?? 'http://localhost:3000');
+  let url: URL;
+  let origin: URL;
+  try {
+    url = new URL(process.env.SUPABASE_URL ?? '');
+  } catch {
+    throw new Error('SUPABASE_URL_INVALID');
+  }
+  try {
+    origin = new URL(process.env.CUSTOMER_AUTH_ORIGIN ?? 'http://localhost:3000');
+  } catch {
+    throw new Error('CUSTOMER_AUTH_ORIGIN_INVALID');
+  }
   const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co'))
+    throw new Error('SUPABASE_URL_INVALID');
+  if (!key) throw new Error('SUPABASE_PUBLISHABLE_KEY_MISSING');
   if (
-    url.protocol !== 'https:' ||
-    !url.hostname.endsWith('.supabase.co') ||
-    !key ||
     origin.pathname !== '/' ||
     origin.search ||
     origin.hash ||
@@ -32,7 +42,7 @@ function settings() {
         origin.protocol === 'http:'
       ))
   )
-    throw new Error('OAuth configuration unavailable');
+    throw new Error('CUSTOMER_AUTH_ORIGIN_INVALID');
   return { url: url.origin, origin: origin.origin, key };
 }
 export function safeCustomerReturn(value: unknown): string {
@@ -63,8 +73,19 @@ oauthRouter.get('/providers', (_req, res) => {
         apple: process.env.CUSTOMER_APPLE_ENABLED === 'true',
       },
     });
-  } catch {
-    res.json({ success: true, data: { google: false, apple: false } });
+  } catch (error) {
+    // This code identifies a missing or malformed setting without exposing keys,
+    // tokens, URLs with credentials, or provider responses.
+    const configuration =
+      error instanceof Error &&
+      [
+        'SUPABASE_URL_INVALID',
+        'SUPABASE_PUBLISHABLE_KEY_MISSING',
+        'CUSTOMER_AUTH_ORIGIN_INVALID',
+      ].includes(error.message)
+        ? error.message
+        : 'UNAVAILABLE';
+    res.json({ success: true, data: { google: false, apple: false }, configuration });
   }
 });
 oauthRouter.get('/start/:provider', (req, res) => {
