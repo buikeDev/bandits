@@ -265,6 +265,14 @@ model OrderNotification {
   @@index([reference, createdAt])
 }
 
+model NotificationWorkerHeartbeat {
+  id            String   @id @default("order-notifications")
+  startedAt     DateTime
+  lastSeenAt    DateTime
+  lastSuccessAt DateTime?
+  lastError     String?
+}
+
 model FulfilmentEnquiry {
   id String @id @default(cuid())
   requestId String @unique

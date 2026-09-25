@@ -1,6 +1,8 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../errors/app-error.js';
+import { logApiError } from '../observability/logger.js';
+import type { RequestContext } from './request-context.js';
 
 export const notFoundHandler: RequestHandler = (req, res) => {
   res.status(404).json({
@@ -9,7 +11,9 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   });
 };
 
-export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _next) => {
+export const errorHandler: ErrorRequestHandler = (error: unknown, req, res, _next) => {
+  const context = req as typeof req & RequestContext;
+  const path = req.path || req.originalUrl.split('?')[0] || '/';
   if (error && typeof error === 'object' && 'type' in error && error.type === 'entity.too.large') {
     res
       .status(413)
@@ -24,9 +28,24 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, _ne
     return;
   }
   if (error instanceof AppError) {
+    if (error.statusCode >= 500)
+      logApiError({
+        requestId: context.requestId,
+        method: req.method,
+        path,
+        status: error.statusCode,
+        code: error.code,
+        errorName: error.name,
+      });
     res.status(error.statusCode).json({ success: false, error: error.message, code: error.code });
     return;
   }
-  console.error(error);
+  logApiError({
+    requestId: context.requestId,
+    method: req.method,
+    path,
+    status: 500,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+  });
   res.status(500).json({ success: false, error: 'Internal server error' });
 };

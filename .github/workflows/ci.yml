@@ -7,6 +7,23 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: bandit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d bandit"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/bandit?schema=public
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/bandit?schema=public
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,11 +35,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @bandit/database db:generate
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      - run: pnpm --filter @bandit/database db:migrate:deploy
+      - run: pnpm --filter @bandit/database db:seed
       - run: pnpm --filter @bandit/database build
       - run: pnpm type-check
       - run: pnpm lint
       - run: pnpm --filter @bandit/backend test
+        env:
+          RUN_DATABASE_TESTS: 'true'
+          RUN_ORDER_DB_TEST: 'true'
+          RUN_CATALOGUE_DB_TEST: 'true'
       - run: pnpm build

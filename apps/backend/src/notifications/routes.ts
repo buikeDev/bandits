@@ -5,8 +5,18 @@ import { currentStaff } from '../admin/auth.js';
 import { AppError } from '../errors/app-error.js';
 import { customerUpdate, whatsappPhone } from './messages.js';
 import { notificationsEnabled } from './queue.js';
+import { notificationWorkerStatus } from './heartbeat.js';
 
 export const notificationRoutes: ReturnType<typeof Router> = Router();
+export const notificationWorkerRoutes: ReturnType<typeof Router> = Router();
+notificationWorkerRoutes.get('/worker', async (_req, res, next) => {
+  try {
+    await currentStaff(_req);
+    res.json({ success: true, data: await notificationWorkerStatus() });
+  } catch (error) {
+    next(error);
+  }
+});
 notificationRoutes.get('/:reference/notifications', async (req, res, next) => {
   try {
     await currentStaff(req);

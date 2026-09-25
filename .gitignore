@@ -54,7 +54,11 @@ blob-report/
 # Editors
 # Local customer portal checklist
 /customer-portal-todo.md
-/docs
+/docs/*
+!/docs/PRODUCTION_LAUNCH_PLAN.md
+!/docs/DATABASE_OPERATIONS.md
+!/docs/ORDER_NOTIFICATIONS.md
+!/docs/MONITORING_AND_INCIDENTS.md
 # Local agent skill instructions (all filename casing)
 [Ss][Kk][Ii][Ll][Ll].[Mm][Dd]
 .agents

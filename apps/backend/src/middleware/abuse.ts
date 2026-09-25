@@ -12,9 +12,22 @@ export const privateKey = (value: string) =>
 export function validateAbuseConfig() {
   const mode = process.env.ABUSE_STORE ?? 'memory';
   if (!['memory', 'redis'].includes(mode)) throw new Error('Invalid ABUSE_STORE');
+  if (process.env.NODE_ENV === 'production' && mode !== 'redis') {
+    throw new Error('Production requires ABUSE_STORE=redis for shared abuse protection');
+  }
+  if (process.env.NODE_ENV === 'production' && (process.env.ABUSE_KEY_SECRET?.length ?? 0) < 32) {
+    throw new Error('Production requires a shared ABUSE_KEY_SECRET of at least 32 characters');
+  }
   if (mode === 'redis') {
-    const url = new URL(process.env.UPSTASH_REDIS_REST_URL ?? '');
+    const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+    let url: URL | undefined;
+    try {
+      url = redisUrl ? new URL(redisUrl) : undefined;
+    } catch {
+      url = undefined;
+    }
     if (
+      !url ||
       url.protocol !== 'https:' ||
       url.username ||
       url.password ||

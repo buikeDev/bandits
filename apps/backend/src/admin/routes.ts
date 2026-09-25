@@ -24,7 +24,7 @@ import {
 import { jsonSafe, orderDetail, updateOrder } from './orders.js';
 import { statuses } from './schema.js';
 import { insights } from './insights.js';
-import { notificationRoutes } from '../notifications/routes.js';
+import { notificationRoutes, notificationWorkerRoutes } from '../notifications/routes.js';
 import { fulfilmentAdmin } from '../fulfilment/routes.js';
 import { signedArtworkForStaff } from '../artwork/routes.js';
 
@@ -45,6 +45,7 @@ adminRouter.use((_req, res, next) => {
 adminRouter.use(protectWrite);
 adminRouter.use('/fulfilment', fulfilmentAdmin);
 adminRouter.use('/orders', notificationRoutes);
+adminRouter.use('/notifications', notificationWorkerRoutes);
 adminRouter.get('/artwork/:id', async (req, res, next) => {
   try {
     await currentStaff(req);

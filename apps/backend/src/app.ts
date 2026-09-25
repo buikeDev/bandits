@@ -9,6 +9,7 @@ import { createNewsletterRouter } from './newsletter/routes.js';
 import { guard, validateAbuseConfig } from './middleware/abuse.js';
 import { fulfilmentRouter } from './fulfilment/routes.js';
 import { artworkRouter } from './artwork/routes.js';
+import { requestContext } from './middleware/request-context.js';
 
 type AppDependencies = {
   checkDatabase: () => Promise<void>;
@@ -26,6 +27,7 @@ export function createApp(dependencies: AppDependencies): Express {
     );
 
   app.disable('x-powered-by');
+  app.use(requestContext);
   app.use(cors({ origin: dependencies.corsOrigin ?? 'http://localhost:3000', credentials: true }));
   app.use('/api/fulfilment', guard('enquiry_ip', 30, 3600), express.json({ limit: '16kb' }), fulfilmentRouter);
   app.use('/api/artwork', guard('artwork_ip', 60, 3600), express.json({ limit: '3mb' }), artworkRouter);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { consume, privateKey } from './abuse.js';
+import { consume, privateKey, validateAbuseConfig } from './abuse.js';
 import { createApp } from '../app.js';
 import type { AddressInfo } from 'node:net';
 
@@ -55,5 +55,45 @@ test('Redis counters are atomic and outages fail closed', async () => {
     globalThis.fetch = original;
     if (saved === undefined) delete process.env.ABUSE_STORE;
     else process.env.ABUSE_STORE = saved;
+  }
+});
+
+test('production requires shared Redis limits and a durable signing secret', () => {
+  const saved = {
+    nodeEnv: process.env.NODE_ENV,
+    store: process.env.ABUSE_STORE,
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    secret: process.env.ABUSE_KEY_SECRET,
+  };
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.ABUSE_STORE = 'memory';
+    process.env.ABUSE_KEY_SECRET = 'a'.repeat(32);
+    assert.throws(validateAbuseConfig, /ABUSE_STORE=redis/);
+
+    process.env.ABUSE_STORE = 'redis';
+    delete process.env.ABUSE_KEY_SECRET;
+    assert.throws(validateAbuseConfig, /ABUSE_KEY_SECRET/);
+
+    process.env.ABUSE_KEY_SECRET = 'a'.repeat(32);
+    delete process.env.UPSTASH_REDIS_REST_URL;
+    delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    assert.throws(validateAbuseConfig, /Configure Redis URL/);
+
+    process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
+    process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+    assert.doesNotThrow(validateAbuseConfig);
+  } finally {
+    if (saved.nodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = saved.nodeEnv;
+    if (saved.store === undefined) delete process.env.ABUSE_STORE;
+    else process.env.ABUSE_STORE = saved.store;
+    if (saved.url === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = saved.url;
+    if (saved.token === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = saved.token;
+    if (saved.secret === undefined) delete process.env.ABUSE_KEY_SECRET;
+    else process.env.ABUSE_KEY_SECRET = saved.secret;
   }
 });

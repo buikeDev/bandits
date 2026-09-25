@@ -7,6 +7,7 @@ import { useStaff } from '@/admin/AdminShell';
 import { money, label, buttonClass } from '@/admin/api';
 import AdminIcon, { type IconName } from '@/admin/AdminIcon';
 import OverviewActivity from '@/admin/OverviewActivity';
+import NotificationWorkerHealth from '@/admin/NotificationWorkerHealth';
 const cards: {
   status: string;
   title: string;
@@ -169,6 +170,7 @@ export default function Overview() {
             ))}
           </div>
           <OverviewActivity />
+          <NotificationWorkerHealth />
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.5fr_1fr]">
             <section className="admin-panel">
               <h2 className="font-bold">Quick actions</h2>
