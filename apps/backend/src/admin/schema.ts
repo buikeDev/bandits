@@ -8,6 +8,12 @@ export const statuses = [
   'COMPLETED',
   'CANCELLED',
 ] as const;
+export const preparationTaskKeys = [
+  'ARTWORK_CONFIRMED',
+  'PRODUCTION_COMPLETE',
+  'QUALITY_CHECK_COMPLETE',
+  'PACKED',
+] as const;
 const minor = z.number().int().min(0).max(100000000000);
 const base = { version: z.number().int().min(0) };
 export const actionSchema = z.discriminatedUnion('action', [
@@ -18,6 +24,12 @@ export const actionSchema = z.discriminatedUnion('action', [
     note: z.string().trim().min(1).max(1000),
   }),
   z.object({ ...base, action: z.literal('note'), note: z.string().trim().min(1).max(3000) }),
+  z.object({
+    ...base,
+    action: z.literal('preparation'),
+    key: z.enum(preparationTaskKeys),
+    completed: z.boolean(),
+  }),
   z.object({
     ...base,
     action: z.literal('contact'),

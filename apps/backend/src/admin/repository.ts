@@ -4,6 +4,7 @@ export const workflowInclude = {
   payments: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
   events: { orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }] },
   reservations: true,
+  preparationTasks: { orderBy: { key: 'asc' as const } },
   returnCases: { orderBy: { createdAt: 'desc' as const } },
 };
 export const adminRepository = {

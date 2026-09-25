@@ -226,7 +226,21 @@ model OrderWorkflow {
   events          OrderEvent[]
   returnCases     OrderReturn[]
   reservations    StockReservation[]
+  preparationTasks OrderPreparationTask[]
   updatedAt       DateTime           @updatedAt
+}
+
+model OrderPreparationTask {
+  id          String        @id @default(cuid())
+  workflowId  String
+  workflow    OrderWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  key         String
+  completedAt DateTime?
+  staffId     String?
+  staffName   String?
+
+  @@unique([workflowId, key])
+  @@index([workflowId, completedAt])
 }
 
 model OrderReturn {

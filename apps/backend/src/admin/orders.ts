@@ -104,6 +104,30 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
         });
         note = 'Delivery charge: ' + action.deliveryMinor / 100 + ' NGN. ' + action.note;
       }
+      if (action.action === 'preparation') {
+        if (!['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status))
+          throw new AppError(
+            'Confirm the order before recording preparation work.',
+            409,
+            'ORDER_NOT_CONFIRMED'
+          );
+        await tx.orderPreparationTask.upsert({
+          where: { workflowId_key: { workflowId: workflow.id, key: action.key } },
+          create: {
+            workflowId: workflow.id,
+            key: action.key,
+            completedAt: action.completed ? new Date() : null,
+            staffId: action.completed ? staff.id : null,
+            staffName: action.completed ? staff.name : null,
+          },
+          update: {
+            completedAt: action.completed ? new Date() : null,
+            staffId: action.completed ? staff.id : null,
+            staffName: action.completed ? staff.name : null,
+          },
+        });
+        note = `${action.completed ? 'Completed' : 'Reopened'} preparation task: ${action.key}.`;
+      }
       if (calculated && ['quote', 'acceptQuote'].includes(action.action))
         throw new AppError(
           'This order uses saved calculated prices, not quotes',
@@ -185,7 +209,8 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
       if (action.action === 'payment') {
         if (action.kind === 'REFUND') {
           requireAdmin(staff);
-          if (!action.reason) throw new AppError('Record a reason for the refund.', 400, 'REFUND_REASON_REQUIRED');
+          if (!action.reason)
+            throw new AppError('Record a reason for the refund.', 400, 'REFUND_REASON_REQUIRED');
         }
         if (
           calculated &&
@@ -221,9 +246,20 @@ export async function updateOrder(reference: string, input: unknown, staff: Staf
           },
         });
         note = `${action.kind}: ${action.amountMinor / 100} NGN. Reference: ${action.reference}${action.kind === 'REFUND' ? `. Reason: ${action.reason}` : ''}`;
-        if (action.kind === 'REFUND') await tx.adminAudit.create({
-          data: { staffId: staff.id, action: 'REFUND_RECORDED', targetId: order.id, details: { reference, amountMinor: action.amountMinor, bankReference: action.reference, reason: action.reason } },
-        });
+        if (action.kind === 'REFUND')
+          await tx.adminAudit.create({
+            data: {
+              staffId: staff.id,
+              action: 'REFUND_RECORDED',
+              targetId: order.id,
+              details: {
+                reference,
+                amountMinor: action.amountMinor,
+                bankReference: action.reference,
+                reason: action.reason,
+              },
+            },
+          });
       }
       if (action.action === 'status') {
         if (!transitions[order.status]?.includes(action.status))

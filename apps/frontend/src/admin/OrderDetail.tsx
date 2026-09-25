@@ -9,6 +9,7 @@ import SavedOrderArtwork from '@/components/SavedOrderArtwork';
 import OrderNotifications from './OrderNotifications';
 import OrderReturns from './OrderReturns';
 import { useStaff } from './AdminShell';
+import AdminIcon from './AdminIcon';
 const transitions: Record<string, string[]> = {
   AWAITING_WHATSAPP: ['CONFIRMED', 'CANCELLED'],
   CONFIRMED: ['IN_PRODUCTION', 'READY', 'CANCELLED'],
@@ -28,10 +29,94 @@ function Field({ title, children }: { title: string; children: React.ReactNode }
 }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
-      <h2 className="text-lg font-bold">{title}</h2>
+    <section className="order-detail-section space-y-4 rounded-xl border border-neutral-200 bg-white p-5">
+      <h2 className="text-base font-bold">{title}</h2>
       {children}
     </section>
+  );
+}
+const preparationTasks = [
+  ['ARTWORK_CONFIRMED', 'Artwork confirmed'],
+  ['PRODUCTION_COMPLETE', 'Production / printing complete'],
+  ['QUALITY_CHECK_COMPLETE', 'Quality check complete'],
+  ['PACKED', 'Packed and ready'],
+] as const;
+function OrderProgress({ order }: { order: Order }) {
+  const delivery = order.workflow?.deliveryMethod === 'DELIVERY';
+  const stages = [
+    'Order received',
+    'Payment confirmed',
+    'Prepare order',
+    delivery ? 'Ready to dispatch' : 'Ready for pickup',
+    'Completed',
+  ];
+  const statusIndex =
+    order.status === 'AWAITING_WHATSAPP'
+      ? 0
+      : order.paymentStatus !== 'PAID' && order.status !== 'CANCELLED'
+        ? 1
+        : order.status === 'CONFIRMED' || order.status === 'IN_PRODUCTION'
+          ? 2
+          : order.status === 'READY' || order.status === 'DISPATCHED'
+            ? 3
+            : order.status === 'COMPLETED'
+              ? 4
+              : 0;
+  return (
+    <ol className="order-progress" aria-label="Order progress">
+      {stages.map((stage, index) => (
+        <li
+          key={stage}
+          className={index < statusIndex ? 'done' : index === statusIndex ? 'active' : ''}
+        >
+          <span>{index < statusIndex ? '✓' : index + 1}</span>
+          <strong>{stage}</strong>
+        </li>
+      ))}
+    </ol>
+  );
+}
+function PreparationChecklist({
+  order,
+  busy,
+  save,
+}: {
+  order: Order;
+  busy: boolean;
+  save: (body: Record<string, unknown>) => Promise<void>;
+}) {
+  const tasks = new Map(order.workflow?.preparationTasks.map((task) => [task.key, task]) ?? []);
+  const available = ['CONFIRMED', 'IN_PRODUCTION', 'READY'].includes(order.status);
+  return (
+    <Section title="Prepare order">
+      <p className="text-sm text-neutral-600">
+        Record each production checkpoint as it is completed. These entries are saved to the order
+        activity timeline.
+      </p>
+      <div className="order-preparation-grid">
+        {preparationTasks.map(([key, name]) => {
+          const task = tasks.get(key);
+          const done = Boolean(task?.completedAt);
+          return (
+            <button
+              key={key}
+              type="button"
+              disabled={busy || !available}
+              onClick={() => void save({ action: 'preparation', key, completed: !done })}
+              className={done ? 'done' : ''}
+            >
+              <span>{done ? '✓' : '○'}</span>
+              <span>{name}</span>
+            </button>
+          );
+        })}
+      </div>
+      {!available && (
+        <p className="text-xs text-neutral-500">
+          Confirm the order before recording preparation work.
+        </p>
+      )}
+    </Section>
   );
 }
 export function QuoteSummary({ quote }: { quote: Quote }) {
@@ -91,8 +176,20 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
   const version = workflow?.version ?? 0;
   const save = async (body: Record<string, unknown>) => {
     if (busy) return;
-    if (body.action === 'payment' && body.kind === 'REFUND' && !window.confirm(`Record a refund of ${money(Number(body.amountMinor))} for ${order.reference}? Confirm the bank transfer, amount, and reason first.`)) return;
-    if (body.action === 'status' && body.status === 'CANCELLED' && !window.confirm('Cancel this order and release reserved stock? This cannot be undone.')) return;
+    if (
+      body.action === 'payment' &&
+      body.kind === 'REFUND' &&
+      !window.confirm(
+        `Record a refund of ${money(Number(body.amountMinor))} for ${order.reference}? Confirm the bank transfer, amount, and reason first.`
+      )
+    )
+      return;
+    if (
+      body.action === 'status' &&
+      body.status === 'CANCELLED' &&
+      !window.confirm('Cancel this order and release reserved stock? This cannot be undone.')
+    )
+      return;
     setBusy(true);
     setError('');
     try {
@@ -106,35 +203,61 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
     }
   };
   const blockers: { target: string; text: string }[] = [];
-  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && !workflow?.contactName) blockers.push({ target: 'contact-details', text: 'Add the customer contact details.' });
-  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && workflow?.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress) blockers.push({ target: 'contact-details', text: 'Add the delivery address.' });
-  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && workflow?.deliveryMethod === 'DELIVERY' && !workflow.tracking) blockers.push({ target: 'contact-details', text: 'Add courier or tracking reference.' });
-  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && order.paymentStatus !== 'PAID') blockers.push({ target: 'payments', text: 'Verify and record full payment.' });
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && !workflow?.contactName)
+    blockers.push({ target: 'contact-details', text: 'Add the customer contact details.' });
+  if (
+    ['DISPATCHED', 'COMPLETED'].includes(order.status) &&
+    workflow?.deliveryMethod === 'DELIVERY' &&
+    !workflow.deliveryAddress
+  )
+    blockers.push({ target: 'contact-details', text: 'Add the delivery address.' });
+  if (
+    ['DISPATCHED', 'COMPLETED'].includes(order.status) &&
+    workflow?.deliveryMethod === 'DELIVERY' &&
+    !workflow.tracking
+  )
+    blockers.push({ target: 'contact-details', text: 'Add courier or tracking reference.' });
+  if (['DISPATCHED', 'COMPLETED'].includes(order.status) && order.paymentStatus !== 'PAID')
+    blockers.push({ target: 'payments', text: 'Verify and record full payment.' });
   useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => { if (busy) { event.preventDefault(); event.returnValue = ''; } };
-    window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn);
+    const warn = (event: BeforeUnloadEvent) => {
+      if (busy) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
   }, [busy]);
   const minor = (form: FormData, key: string) => Math.round(Number(form.get(key)) * 100);
   return (
-    <main>
+    <main className="order-workspace">
       <Link href="/admin/orders" className="inline-flex min-h-11 items-center text-sm underline">
         ← All orders
       </Link>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="order-workspace-header mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="max-w-2xl break-all text-xl font-bold sm:text-2xl">{order.reference}</h1>
+          <h1 className="max-w-2xl break-all text-xl font-bold sm:text-2xl">
+            <span className="order-reference-icon">
+              <AdminIcon name="orders" />
+            </span>
+            {order.reference}
+          </h1>
           <p className="mt-2 text-sm text-neutral-600">
             {new Date(order.createdAt).toLocaleString()} ·{' '}
             {order.customer ? `${order.customer.name} (${order.customer.email})` : 'Guest enquiry'}
           </p>
         </div>
         <div className="flex gap-2 text-sm capitalize">
-          <span className="rounded-full bg-yellow-200 px-3 py-2">
+          <span className="order-status-badge rounded-full bg-yellow-200 px-3 py-2">
             {fulfilmentLabel(order.status, workflow?.deliveryMethod)}
           </span>
-          <span className="rounded-full bg-white px-3 py-2">{label(order.paymentStatus)}</span>
+          <span className="order-payment-badge rounded-full bg-white px-3 py-2">
+            {label(order.paymentStatus)}
+          </span>
         </div>
       </div>
+      <OrderProgress order={order} />
       {error && (
         <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
           <p>{error}</p>
@@ -143,9 +266,33 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </button>
         </div>
       )}
-      {notice && <p role="status" className="mb-5 rounded-xl bg-green-50 p-4 text-sm text-green-900">{notice}</p>}
-      {blockers.length > 0 && <section className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4"><h2 className="font-bold">Before this order can move forward</h2><ul className="mt-2 space-y-2 text-sm">{blockers.map((blocker) => <li key={blocker.text}><button className="underline" onClick={() => document.getElementById(blocker.target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>{blocker.text}</button></li>)}</ul></section>}
-      <div className="grid items-start gap-6 lg:grid-cols-[1.15fr_1fr]">
+      {notice && (
+        <p role="status" className="mb-5 rounded-xl bg-green-50 p-4 text-sm text-green-900">
+          {notice}
+        </p>
+      )}
+      {blockers.length > 0 && (
+        <section className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="font-bold">Before this order can move forward</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            {blockers.map((blocker) => (
+              <li key={blocker.text}>
+                <button
+                  className="underline"
+                  onClick={() =>
+                    document
+                      .getElementById(blocker.target)
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                  }
+                >
+                  {blocker.text}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <div className="order-workspace-grid grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)]">
         <div className="space-y-6">
           <Section title="Original order">
             <p className="text-sm text-neutral-600">
@@ -154,11 +301,12 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
             </p>
             <SavedOrderArtwork items={order.snapshot.items} />
           </Section>
-          <Section title="Saved WhatsApp message">
+          <details className="order-detail-disclosure">
+            <summary>Saved WhatsApp message</summary>
             <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words font-sans text-sm leading-6">
               {order.message}
             </pre>
-          </Section>
+          </details>
           <Section title="Staff activity">
             <form
               className="space-y-3"
@@ -188,80 +336,130 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </Section>
         </div>
         <div className="space-y-6">
-          <div id="contact-details"><Section title="Contact & delivery">
-            <p className="text-sm text-neutral-600">
-              Collect these details in WhatsApp. You can accept the order and reserve stock now;
-              contact details are required before dispatch or collection.
-            </p>
-            {(!workflow?.contactName ||
-              !workflow?.contactPhone ||
-              (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)) && (
-              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                Still to collect: contact name, phone and delivery address if sending by courier.
-                Agree on delivery or pickup and record it below.
-              </p>
-            )}
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = new FormData(e.currentTarget);
-                void save({ action: 'contact', ...Object.fromEntries(form) });
-              }}
+          <aside className="order-context-summary">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  Customer
+                </p>
+                <p className="mt-1 font-bold">
+                  {workflow?.contactName || order.customer?.name || 'Guest enquiry'}
+                </p>
+                <p className="text-sm text-neutral-600">
+                  {workflow?.contactPhone || order.customer?.email || 'Contact details pending'}
+                </p>
+              </div>
+              <span className="order-customer-initial">
+                {(workflow?.contactName || order.customer?.name || 'G').charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <a
+              className="mt-4 flex min-h-11 items-center justify-center rounded-lg bg-neutral-900 px-3 text-sm font-semibold text-white"
+              href={
+                workflow?.contactPhone
+                  ? `https://wa.me/${workflow.contactPhone.replace(/\D/g, '')}`
+                  : '#contact-details'
+              }
+              target={workflow?.contactPhone ? '_blank' : undefined}
+              rel={workflow?.contactPhone ? 'noreferrer' : undefined}
             >
-              <Field title="Contact name">
-                <input
-                  name="contactName"
-                  defaultValue={workflow?.contactName || order.customer?.name}
-                  required
-                  maxLength={150}
-                  className={inputClass}
-                />
-              </Field>
-              <Field title="Phone / WhatsApp">
-                <input
-                  name="contactPhone"
-                  type="tel"
-                  defaultValue={workflow?.contactPhone}
-                  required
-                  maxLength={40}
-                  className={inputClass}
-                />
-              </Field>
-              <Field title="Method">
-                <select
-                  name="deliveryMethod"
-                  defaultValue={workflow?.deliveryMethod ?? 'COLLECTION'}
-                  className={inputClass}
-                >
-                  <option value="COLLECTION">Collection</option>
-                  <option value="DELIVERY">Delivery</option>
-                </select>
-              </Field>
-              <Field title="Delivery address">
-                <textarea
-                  name="deliveryAddress"
-                  defaultValue={workflow?.deliveryAddress}
-                  maxLength={1000}
-                  className={inputClass}
-                />
-              </Field>
-              <Field title="Courier / tracking reference">
-                <input
-                  name="tracking"
-                  defaultValue={workflow?.tracking}
-                  maxLength={300}
-                  className={inputClass}
-                />
-              </Field>
-              <button
-                disabled={busy || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)}
-                className={buttonClass}
+              {workflow?.contactPhone ? 'Message on WhatsApp' : 'Add customer contact'}
+            </a>
+            <div className="mt-5 space-y-2 border-t pt-4 text-sm">
+              <p className="flex justify-between">
+                <span>Items ({order.totalQuantity.toLocaleString()} units)</span>
+                <strong>{money(order.subtotalMinor)}</strong>
+              </p>
+              <p className="flex justify-between">
+                <span>Delivery</span>
+                <span>{order.deliveryMinor === null ? 'Pending' : money(order.deliveryMinor)}</span>
+              </p>
+              <p className="flex justify-between border-t pt-2 font-bold">
+                <span>Total</span>
+                <span>{order.totalMinor === null ? 'Pending' : money(order.totalMinor)}</span>
+              </p>
+              <p className="flex justify-between text-neutral-600">
+                <span>Amount paid</span>
+                <span>{money(order.paidMinor)}</span>
+              </p>
+            </div>
+          </aside>
+          <div id="contact-details">
+            <Section title="Contact & delivery">
+              <p className="text-sm text-neutral-600">
+                Collect these details in WhatsApp. You can accept the order and reserve stock now;
+                contact details are required before dispatch or collection.
+              </p>
+              {(!workflow?.contactName ||
+                !workflow?.contactPhone ||
+                (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)) && (
+                <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                  Still to collect: contact name, phone and delivery address if sending by courier.
+                  Agree on delivery or pickup and record it below.
+                </p>
+              )}
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = new FormData(e.currentTarget);
+                  void save({ action: 'contact', ...Object.fromEntries(form) });
+                }}
               >
-                Save details
-              </button>
-            </form>
-          </Section></div>
+                <Field title="Contact name">
+                  <input
+                    name="contactName"
+                    defaultValue={workflow?.contactName || order.customer?.name}
+                    required
+                    maxLength={150}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field title="Phone / WhatsApp">
+                  <input
+                    name="contactPhone"
+                    type="tel"
+                    defaultValue={workflow?.contactPhone}
+                    required
+                    maxLength={40}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field title="Method">
+                  <select
+                    name="deliveryMethod"
+                    defaultValue={workflow?.deliveryMethod ?? 'COLLECTION'}
+                    className={inputClass}
+                  >
+                    <option value="COLLECTION">Collection</option>
+                    <option value="DELIVERY">Delivery</option>
+                  </select>
+                </Field>
+                <Field title="Delivery address">
+                  <textarea
+                    name="deliveryAddress"
+                    defaultValue={workflow?.deliveryAddress}
+                    maxLength={1000}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field title="Courier / tracking reference">
+                  <input
+                    name="tracking"
+                    defaultValue={workflow?.tracking}
+                    maxLength={300}
+                    className={inputClass}
+                  />
+                </Field>
+                <button
+                  disabled={busy || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)}
+                  className={buttonClass}
+                >
+                  Save details
+                </button>
+              </form>
+            </Section>
+          </div>
           {order.calculated ? (
             <Section title="Calculated order price">
               <p>
@@ -442,84 +640,94 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               )}
             </Section>
           )}
-          <div id="payments"><Section title="Payments">
-            <p className="text-sm text-neutral-600">
-              Send bank instructions through WhatsApp. Check the bank receipt before recording
-              payment here. Payment status updates from recorded payments; accepting an order does
-              not mark it paid.
-            </p>
-            <p className="text-sm">
-              Net received: <strong>{money(order.paidMinor)}</strong>
-              {order.totalMinor !== null && (
-                <>
-                  {' '}
-                  · Balance:{' '}
-                  <strong>{money(Number(order.totalMinor) - Number(order.paidMinor))}</strong>
-                </>
-              )}
-            </p>
-            <form
-              className="space-y-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = new FormData(e.currentTarget);
-                void save({
-                  action: 'payment',
-                  kind: form.get('kind'),
-                  amountMinor: minor(form, 'amount'),
-                  reference: form.get('reference'),
-                  reason: form.get('reason'),
-                });
-              }}
-            >
-              <Field title="Record type">
-                <select name="kind" className={inputClass}>
-                  <option value="PAYMENT">Payment received</option>
-                  <option value="REFUND" disabled={staff?.role !== 'ADMIN'}>Refund issued (administrator only)</option>
-                </select>
-              </Field>
-              <Field title="Amount (NGN)">
-                <input
-                  name="amount"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  className={inputClass}
-                />
-              </Field>
-              <Field title="Bank / receipt reference">
-                <input
-                  name="reference"
-                  required
-                  minLength={3}
-                  maxLength={150}
-                  className={inputClass}
-                />
-              </Field>
-              <Field title="Refund reason (required for refunds)">
-                <textarea name="reason" maxLength={1000} className={inputClass} />
-              </Field>
-              <p className="text-xs text-neutral-600">
-                Record only verified receipts or refunds. This does not move money.
+          <div id="payments">
+            <Section title="Payments">
+              <p className="text-sm text-neutral-600">
+                Send bank instructions through WhatsApp. Check the bank receipt before recording
+                payment here. Payment status updates from recorded payments; accepting an order does
+                not mark it paid.
               </p>
-              <button disabled={busy || order.totalMinor === null} className={buttonClass}>
-                Record transaction
-              </button>
-            </form>
-            <ul className="space-y-2 text-sm">
-              {workflow?.payments.map((p) => (
-                <li key={p.id} className="border-t pt-2">
-                  <span className="capitalize">{label(p.kind)}</span> · {money(p.amountMinor)}
-                  <p className="break-all text-xs text-neutral-500">
-                    {p.reference} · {new Date(p.createdAt).toLocaleString()}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </Section></div>
+              <p className="text-sm">
+                Net received: <strong>{money(order.paidMinor)}</strong>
+                {order.totalMinor !== null && (
+                  <>
+                    {' '}
+                    · Balance:{' '}
+                    <strong>{money(Number(order.totalMinor) - Number(order.paidMinor))}</strong>
+                  </>
+                )}
+              </p>
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = new FormData(e.currentTarget);
+                  void save({
+                    action: 'payment',
+                    kind: form.get('kind'),
+                    amountMinor: minor(form, 'amount'),
+                    reference: form.get('reference'),
+                    reason: form.get('reason'),
+                  });
+                }}
+              >
+                <Field title="Record type">
+                  <select name="kind" className={inputClass}>
+                    <option value="PAYMENT">Payment received</option>
+                    <option value="REFUND" disabled={staff?.role !== 'ADMIN'}>
+                      Refund issued (administrator only)
+                    </option>
+                  </select>
+                </Field>
+                <Field title="Amount (NGN)">
+                  <input
+                    name="amount"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                    className={inputClass}
+                  />
+                </Field>
+                <Field title="Bank / receipt reference">
+                  <input
+                    name="reference"
+                    required
+                    minLength={3}
+                    maxLength={150}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field title="Refund reason (required for refunds)">
+                  <textarea name="reason" maxLength={1000} className={inputClass} />
+                </Field>
+                <p className="text-xs text-neutral-600">
+                  Record only verified receipts or refunds. This does not move money.
+                </p>
+                <button disabled={busy || order.totalMinor === null} className={buttonClass}>
+                  Record transaction
+                </button>
+              </form>
+              <ul className="space-y-2 text-sm">
+                {workflow?.payments.map((p) => (
+                  <li key={p.id} className="border-t pt-2">
+                    <span className="capitalize">{label(p.kind)}</span> · {money(p.amountMinor)}
+                    <p className="break-all text-xs text-neutral-500">
+                      {p.reference} · {new Date(p.createdAt).toLocaleString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          </div>
           <OrderNotifications reference={order.reference} version={version} />
-          <OrderReturns reference={order.reference} totalQuantity={order.totalQuantity} items={workflow?.returnCases ?? []} refresh={refresh} />
+          <OrderReturns
+            reference={order.reference}
+            totalQuantity={order.totalQuantity}
+            items={workflow?.returnCases ?? []}
+            refresh={refresh}
+          />
+          <PreparationChecklist order={order} busy={busy} save={save} />
           <Section title="Order progress">
             {transitions[order.status]?.length ? (
               <form

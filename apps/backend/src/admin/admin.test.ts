@@ -194,6 +194,7 @@ function fixture(status = 'AWAITING_WHATSAPP', quantity = 100) {
   const inventoryChanges: unknown[] = [];
   const reservations: unknown[] = [];
   const payments: unknown[] = [];
+  const preparationChanges: unknown[] = [];
   const workflow = {
     id: 'wf',
     version: 0,
@@ -258,6 +259,11 @@ function fixture(status = 'AWAITING_WHATSAPP', quantity = 100) {
       },
       update: async () => ({}),
     },
+    orderPreparationTask: {
+      upsert: async (args: unknown) => {
+        preparationChanges.push(args);
+      },
+    },
     orderEvent: {
       create: async (args: unknown) => {
         events.push(args);
@@ -276,7 +282,16 @@ function fixture(status = 'AWAITING_WHATSAPP', quantity = 100) {
     async (callback: (value: typeof tx) => Promise<unknown>) => callback(tx)
   );
   mock.method(adminRepository, 'detail', async () => ({ ...order, workflow: null }));
-  return { workflow, order, tx, events, inventoryChanges, reservations, payments };
+  return {
+    workflow,
+    order,
+    tx,
+    events,
+    inventoryChanges,
+    reservations,
+    payments,
+    preparationChanges,
+  };
 }
 test('stale order mutations are rejected before staff changes', async () => {
   const f = fixture();
@@ -308,6 +323,29 @@ test('confirmation reserves available listed stock once and records the actor', 
     hasCode('INVALID_STATUS')
   );
   assert.equal(f.reservations.length, 1);
+});
+test('preparation checkpoints are saved only after confirmation and are audited', async () => {
+  const f = fixture();
+  await assert.rejects(
+    updateOrder(
+      'ref',
+      { action: 'preparation', version: 0, key: 'ARTWORK_CONFIRMED', completed: true },
+      staff
+    ),
+    hasCode('ORDER_NOT_CONFIRMED')
+  );
+  f.order.status = 'CONFIRMED';
+  await updateOrder(
+    'ref',
+    { action: 'preparation', version: 0, key: 'ARTWORK_CONFIRMED', completed: true },
+    staff
+  );
+  assert.equal(f.preparationChanges.length, 1);
+  assert.equal(
+    (f.preparationChanges[0] as { create: { key: string } }).create.key,
+    'ARTWORK_CONFIRMED'
+  );
+  assert.match((f.events[0] as { data: { note: string } }).data.note, /Completed preparation task/);
 });
 test('acceptance reserves stock while WhatsApp contact details are still missing', async () => {
   const f = fixture();
@@ -400,7 +438,14 @@ test('refunds cannot exceed receipts and overpayments are rejected', async () =>
     await assert.rejects(
       updateOrder(
         'ref',
-        { action: 'payment', version: 0, kind, amountMinor: 6000, reference: 'BANK-001', reason: kind === 'REFUND' ? 'Customer cancellation' : '' },
+        {
+          action: 'payment',
+          version: 0,
+          kind,
+          amountMinor: 6000,
+          reference: 'BANK-001',
+          reason: kind === 'REFUND' ? 'Customer cancellation' : '',
+        },
         kind === 'REFUND' ? { ...staff, role: 'ADMIN' } : staff
       ),
       hasCode('INVALID_PAYMENT')
