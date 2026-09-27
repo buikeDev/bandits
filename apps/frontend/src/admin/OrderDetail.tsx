@@ -9,6 +9,15 @@ import SavedOrderArtwork from '@/components/SavedOrderArtwork';
 import OrderNotifications from './OrderNotifications';
 import OrderReturns from './OrderReturns';
 import { useStaff } from './AdminShell';
+type WorkflowStage = 'confirm' | 'payment' | 'prepare' | 'fulfil' | 'complete' | 'closed';
+function workflowStage(order: Order): WorkflowStage {
+  if (order.status === 'CANCELLED') return 'closed';
+  if (order.status === 'COMPLETED') return 'complete';
+  if (order.status === 'AWAITING_WHATSAPP') return 'confirm';
+  if (order.paymentStatus !== 'PAID') return 'payment';
+  if (order.status === 'CONFIRMED' || order.status === 'IN_PRODUCTION') return 'prepare';
+  return 'fulfil';
+}
 import AdminIcon from './AdminIcon';
 const transitions: Record<string, string[]> = {
   AWAITING_WHATSAPP: ['CONFIRMED', 'CANCELLED'],
@@ -25,6 +34,18 @@ function Field({ title, children }: { title: string; children: React.ReactNode }
       {title}
       {children}
     </label>
+  );
+}
+function LoadingButton({
+  busy,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { busy: boolean }) {
+  return (
+    <button {...props} disabled={busy || props.disabled} aria-busy={busy}>
+      {busy && <span className="button-spinner" aria-hidden="true" />}
+      {busy ? 'Saving…' : children}
+    </button>
   );
 }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -98,16 +119,17 @@ function PreparationChecklist({
           const task = tasks.get(key);
           const done = Boolean(task?.completedAt);
           return (
-            <button
+            <LoadingButton
               key={key}
               type="button"
-              disabled={busy || !available}
+              disabled={!available}
+              busy={busy}
               onClick={() => void save({ action: 'preparation', key, completed: !done })}
               className={done ? 'done' : ''}
             >
               <span>{done ? '✓' : '○'}</span>
               <span>{name}</span>
-            </button>
+            </LoadingButton>
           );
         })}
       </div>
@@ -146,7 +168,9 @@ export function QuoteSummary({ quote }: { quote: Quote }) {
   );
 }
 export default function OrderDetail({ reference }: { reference: string }) {
-  const { data, error, refresh } = useAdminData<Order>(`/orders/${encodeURIComponent(reference)}`);
+  const { data, error, refresh, replace } = useAdminData<Order>(
+    `/orders/${encodeURIComponent(reference)}`
+  );
   if (error)
     return (
       <div role="alert">
@@ -162,18 +186,41 @@ export default function OrderDetail({ reference }: { reference: string }) {
       key={`${reference}-${data.workflow?.version ?? 0}`}
       order={data}
       refresh={refresh}
+      replace={replace}
     />
   );
 }
-function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) {
+function OrderEditor({
+  order,
+  refresh,
+  replace,
+}: {
+  order: Order;
+  refresh: () => void;
+  replace: (value: Order) => void;
+}) {
   const staff = useStaff();
   const [busy, setBusy] = useState(false);
+  const [busyAction, setBusyAction] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const workflow = order.workflow;
   const quote = workflow?.quotes[0];
   const accepted = workflow?.quotes.find((q) => q.id === workflow.acceptedQuoteId);
   const version = workflow?.version ?? 0;
+  const stage = workflowStage(order);
+  const nextStatus =
+    stage === 'confirm'
+      ? 'CONFIRMED'
+      : stage === 'prepare'
+        ? order.status === 'CONFIRMED'
+          ? 'IN_PRODUCTION'
+          : 'READY'
+        : stage === 'fulfil'
+          ? order.status === 'READY' && workflow?.deliveryMethod === 'DELIVERY'
+            ? 'DISPATCHED'
+            : 'COMPLETED'
+          : null;
   const save = async (body: Record<string, unknown>) => {
     if (busy) return;
     if (
@@ -191,15 +238,20 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
     )
       return;
     setBusy(true);
+    setBusyAction(String(body.action));
     setError('');
     try {
-      await adminApi(`/orders/${order.reference}/actions`, { ...body, version });
+      const updated = await adminApi<Order>(`/orders/${order.reference}/actions`, {
+        ...body,
+        version,
+      });
+      replace(updated);
       setNotice(body.action === 'status' ? 'Order progress updated.' : 'Changes saved.');
-      refresh();
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
       setBusy(false);
+      setBusyAction('');
     }
   };
   const blockers: { target: string; text: string }[] = [];
@@ -231,7 +283,7 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
   }, [busy]);
   const minor = (form: FormData, key: string) => Math.round(Number(form.get(key)) * 100);
   return (
-    <main className="order-workspace">
+    <main className="order-workspace" data-workflow-stage={stage}>
       <Link href="/admin/orders" className="inline-flex min-h-11 items-center text-sm underline">
         ← All orders
       </Link>
@@ -292,6 +344,85 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
           </ul>
         </section>
       )}
+      <section className="workflow-next-step">
+        <p className="workflow-eyebrow">Current step</p>
+        <h2>
+          {stage === 'confirm'
+            ? 'Confirm the order'
+            : stage === 'payment'
+              ? 'Verify payment'
+              : stage === 'prepare'
+                ? order.status === 'CONFIRMED'
+                  ? 'Start production'
+                  : 'Prepare the order'
+                : stage === 'fulfil'
+                  ? 'Fulfil the order'
+                  : stage === 'complete'
+                    ? 'Order completed'
+                    : 'Order cancelled'}
+        </h2>
+        <p>
+          {stage === 'confirm'
+            ? 'Save the customer details and final price, then reserve stock.'
+            : stage === 'payment'
+              ? 'Record the verified bank payment before production begins.'
+              : stage === 'prepare'
+                ? 'Complete the production work before making this order ready.'
+                : stage === 'fulfil'
+                  ? 'Record collection or delivery as the final operational step.'
+                  : 'This order no longer requires staff action.'}
+        </p>
+        {nextStatus && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void save({
+                action: 'status',
+                status: nextStatus,
+                note: new FormData(e.currentTarget).get('note'),
+              });
+            }}
+            className="workflow-next-action"
+          >
+            <textarea
+              name="note"
+              required
+              maxLength={1000}
+              className={inputClass}
+              placeholder="Add the record for this step."
+            />
+            <LoadingButton
+              busy={busy && busyAction === 'status'}
+              disabled={
+                (stage === 'confirm' &&
+                  !(
+                    workflow?.contactName &&
+                    workflow?.contactPhone &&
+                    (workflow.deliveryMethod !== 'DELIVERY' || workflow.deliveryAddress) &&
+                    (order.calculated
+                      ? workflow.deliveryMethod !== 'DELIVERY' || order.deliveryMinor !== null
+                      : accepted)
+                  )) ||
+                (stage === 'prepare' &&
+                  order.status === 'IN_PRODUCTION' &&
+                  !(
+                    workflow?.preparationTasks?.length === 4 &&
+                    workflow.preparationTasks.every((task) => task.completedAt)
+                  ))
+              }
+              className={buttonClass}
+            >
+              {fulfilmentLabel(nextStatus, workflow?.deliveryMethod)}
+            </LoadingButton>
+          </form>
+        )}
+        {stage === 'confirm' && (
+          <p className="text-xs text-amber-800">
+            Use the details and pricing sections below first. Confirmation stays disabled here to
+            keep the steps in order.
+          </p>
+        )}
+      </section>{' '}
       <div className="order-workspace-grid grid items-start gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)]">
         <div className="space-y-6">
           <Section title="Original order">
@@ -384,402 +515,423 @@ function OrderEditor({ order, refresh }: { order: Order; refresh: () => void }) 
               </p>
             </div>
           </aside>
-          <div id="contact-details">
-            <Section title="Contact & delivery">
-              <p className="text-sm text-neutral-600">
-                Collect these details in WhatsApp. You can accept the order and reserve stock now;
-                contact details are required before dispatch or collection.
-              </p>
-              {(!workflow?.contactName ||
-                !workflow?.contactPhone ||
-                (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)) && (
-                <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                  Still to collect: contact name, phone and delivery address if sending by courier.
-                  Agree on delivery or pickup and record it below.
+          {['confirm', 'fulfil'].includes(stage) && (
+            <div id="contact-details">
+              <Section title="Contact & delivery">
+                <p className="text-sm text-neutral-600">
+                  Collect these details in WhatsApp. You can accept the order and reserve stock now;
+                  contact details are required before dispatch or collection.
                 </p>
-              )}
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  void save({ action: 'contact', ...Object.fromEntries(form) });
-                }}
-              >
-                <Field title="Contact name">
-                  <input
-                    name="contactName"
-                    defaultValue={workflow?.contactName || order.customer?.name}
-                    required
-                    maxLength={150}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field title="Phone / WhatsApp">
-                  <input
-                    name="contactPhone"
-                    type="tel"
-                    defaultValue={workflow?.contactPhone}
-                    required
-                    maxLength={40}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field title="Method">
-                  <select
-                    name="deliveryMethod"
-                    defaultValue={workflow?.deliveryMethod ?? 'COLLECTION'}
-                    className={inputClass}
-                  >
-                    <option value="COLLECTION">Collection</option>
-                    <option value="DELIVERY">Delivery</option>
-                  </select>
-                </Field>
-                <Field title="Delivery address">
-                  <textarea
-                    name="deliveryAddress"
-                    defaultValue={workflow?.deliveryAddress}
-                    maxLength={1000}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field title="Courier / tracking reference">
-                  <input
-                    name="tracking"
-                    defaultValue={workflow?.tracking}
-                    maxLength={300}
-                    className={inputClass}
-                  />
-                </Field>
-                <button
-                  disabled={busy || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)}
-                  className={buttonClass}
-                >
-                  Save details
-                </button>
-              </form>
-            </Section>
-          </div>
-          {order.calculated ? (
-            <Section title="Calculated order price">
-              <p>
-                Items: <strong>{money(order.subtotalMinor)}</strong>
-              </p>
-              <p>
-                Delivery:{' '}
-                {order.deliveryMinor === null ? 'Pending confirmation' : money(order.deliveryMinor)}
-              </p>
-              <p>
-                {order.deliveryMinor === null ? 'Subtotal before delivery' : 'Total'}:{' '}
-                <strong>{money(order.totalMinor ?? order.subtotalMinor)}</strong>
-              </p>
-              {workflow?.deliveryMethod === 'DELIVERY' && (
+                {(!workflow?.contactName ||
+                  !workflow?.contactPhone ||
+                  (workflow.deliveryMethod === 'DELIVERY' && !workflow.deliveryAddress)) && (
+                  <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                    Still to collect: contact name, phone and delivery address if sending by
+                    courier. Agree on delivery or pickup and record it below.
+                  </p>
+                )}
                 <form
                   className="space-y-3"
                   onSubmit={(e) => {
                     e.preventDefault();
                     const form = new FormData(e.currentTarget);
-                    void save({
-                      action: 'deliveryFee',
-                      deliveryMinor: minor(form, 'delivery'),
-                      note: form.get('note'),
-                    });
+                    void save({ action: 'contact', ...Object.fromEntries(form) });
                   }}
                 >
-                  <Field title="Delivery charge (NGN)">
+                  <Field title="Contact name">
                     <input
-                      name="delivery"
-                      type="number"
-                      min="0"
-                      step="0.01"
+                      name="contactName"
+                      defaultValue={workflow?.contactName || order.customer?.name}
                       required
+                      maxLength={150}
                       className={inputClass}
-                      defaultValue={
-                        order.deliveryMinor === null ? '' : Number(order.deliveryMinor) / 100
-                      }
                     />
                   </Field>
-                  <Field title="Delivery charge record">
-                    <input name="note" required maxLength={1000} className={inputClass} />
+                  <Field title="Phone / WhatsApp">
+                    <input
+                      name="contactPhone"
+                      type="tel"
+                      defaultValue={workflow?.contactPhone}
+                      required
+                      maxLength={40}
+                      className={inputClass}
+                    />
                   </Field>
-                  <button
-                    disabled={
-                      busy || ['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)
-                    }
+                  <Field title="Method">
+                    <select
+                      name="deliveryMethod"
+                      defaultValue={workflow?.deliveryMethod ?? 'COLLECTION'}
+                      className={inputClass}
+                    >
+                      <option value="COLLECTION">Collection</option>
+                      <option value="DELIVERY">Delivery</option>
+                    </select>
+                  </Field>
+                  <Field title="Delivery address">
+                    <textarea
+                      name="deliveryAddress"
+                      defaultValue={workflow?.deliveryAddress}
+                      maxLength={1000}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field title="Courier / tracking reference">
+                    <input
+                      name="tracking"
+                      defaultValue={workflow?.tracking}
+                      maxLength={300}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <LoadingButton
+                    busy={busy && busyAction === 'contact'}
+                    disabled={['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)}
                     className={buttonClass}
                   >
-                    Save delivery charge
-                  </button>
+                    Save details
+                  </LoadingButton>
                 </form>
-              )}
-            </Section>
-          ) : (
-            <Section title="Legacy quote & customer agreement">
-              {accepted ? (
-                <>
-                  <p className="text-sm text-green-800">Customer acceptance recorded.</p>
-                  <QuoteSummary quote={accepted} />
-                </>
-              ) : (
-                <>
+              </Section>
+            </div>
+          )}
+          {stage === 'confirm' &&
+            (order.calculated ? (
+              <Section title="Calculated order price">
+                <p>
+                  Items: <strong>{money(order.subtotalMinor)}</strong>
+                </p>
+                <p>
+                  Delivery:{' '}
+                  {order.deliveryMinor === null
+                    ? 'Pending confirmation'
+                    : money(order.deliveryMinor)}
+                </p>
+                <p>
+                  {order.deliveryMinor === null ? 'Subtotal before delivery' : 'Total'}:{' '}
+                  <strong>{money(order.totalMinor ?? order.subtotalMinor)}</strong>
+                </p>
+                {workflow?.deliveryMethod === 'DELIVERY' && (
                   <form
                     className="space-y-3"
                     onSubmit={(e) => {
                       e.preventDefault();
                       const form = new FormData(e.currentTarget);
                       void save({
-                        action: 'quote',
-                        lines: order.snapshot.items.map((_item, i) => ({
-                          unitMinor: minor(form, `unit-${i}`),
-                        })),
-                        printingMinor: minor(form, 'printing'),
+                        action: 'deliveryFee',
                         deliveryMinor: minor(form, 'delivery'),
                         note: form.get('note'),
                       });
                     }}
                   >
-                    {order.snapshot.items.map((item, i) => (
-                      <Field
-                        key={i}
-                        title={`${i + 1}. ${item.name} — unit price (NGN), × ${item.quantity}`}
-                      >
-                        <input
-                          name={`unit-${i}`}
-                          type="number"
-                          min="0"
-                          max="1000000000"
-                          step="0.01"
-                          required
-                          defaultValue={(quote?.lines[i]?.unitMinor ?? item.unitMinor ?? 0) / 100}
-                          className={inputClass}
-                        />
-                      </Field>
-                    ))}
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field title="Printing (NGN)">
-                        <input
-                          name="printing"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          required
-                          defaultValue={Number(quote?.printingMinor ?? 0) / 100}
-                          className={inputClass}
-                        />
-                      </Field>
-                      <Field title="Delivery (NGN)">
-                        <input
-                          name="delivery"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          required
-                          defaultValue={Number(quote?.deliveryMinor ?? 0) / 100}
-                          className={inputClass}
-                        />
-                      </Field>
-                    </div>
-                    <Field title="Quote note">
-                      <textarea name="note" maxLength={1000} className={inputClass} />
+                    <Field title="Delivery charge (NGN)">
+                      <input
+                        name="delivery"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        required
+                        className={inputClass}
+                        defaultValue={
+                          order.deliveryMinor === null ? '' : Number(order.deliveryMinor) / 100
+                        }
+                      />
                     </Field>
-                    <button
-                      disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                    <Field title="Delivery charge record">
+                      <input name="note" required maxLength={1000} className={inputClass} />
+                    </Field>
+                    <LoadingButton
+                      busy={busy && busyAction === 'deliveryFee'}
+                      disabled={['DISPATCHED', 'COMPLETED', 'CANCELLED'].includes(order.status)}
                       className={buttonClass}
                     >
-                      {quote ? 'Save revised quote' : 'Prepare quote'}
-                    </button>
+                      Save delivery charge
+                    </LoadingButton>
                   </form>
-                  {quote && (
-                    <div className="space-y-4 border-t pt-4">
-                      <QuoteSummary quote={quote} />
-                      <form
-                        className="space-y-3"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void save({
-                            action: 'acceptQuote',
-                            quoteId: quote.id,
-                            note: new FormData(e.currentTarget).get('note'),
-                          });
-                        }}
-                      >
-                        <Field title="Customer acceptance record">
-                          <textarea
-                            name="note"
-                            placeholder="Who agreed, when, and through which channel?"
+                )}
+              </Section>
+            ) : (
+              <Section title="Legacy quote & customer agreement">
+                {accepted ? (
+                  <>
+                    <p className="text-sm text-green-800">Customer acceptance recorded.</p>
+                    <QuoteSummary quote={accepted} />
+                  </>
+                ) : (
+                  <>
+                    <form
+                      className="space-y-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const form = new FormData(e.currentTarget);
+                        void save({
+                          action: 'quote',
+                          lines: order.snapshot.items.map((_item, i) => ({
+                            unitMinor: minor(form, `unit-${i}`),
+                          })),
+                          printingMinor: minor(form, 'printing'),
+                          deliveryMinor: minor(form, 'delivery'),
+                          note: form.get('note'),
+                        });
+                      }}
+                    >
+                      {order.snapshot.items.map((item, i) => (
+                        <Field
+                          key={i}
+                          title={`${i + 1}. ${item.name} — unit price (NGN), × ${item.quantity}`}
+                        >
+                          <input
+                            name={`unit-${i}`}
+                            type="number"
+                            min="0"
+                            max="1000000000"
+                            step="0.01"
                             required
-                            maxLength={1000}
+                            defaultValue={(quote?.lines[i]?.unitMinor ?? item.unitMinor ?? 0) / 100}
                             className={inputClass}
                           />
                         </Field>
-                        <button
-                          disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
-                          className={buttonClass}
-                        >
-                          Record customer acceptance
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </>
-              )}
-              {(workflow?.quotes.length ?? 0) > 1 && (
-                <details>
-                  <summary className="cursor-pointer text-sm">Previous quote revisions</summary>
-                  <div className="mt-3 space-y-4">
-                    {workflow?.quotes.slice(1).map((q) => (
-                      <div key={q.id} className="border-t pt-3">
-                        <p className="mb-2 text-xs">
-                          {new Date(q.createdAt!).toLocaleString()} · {q.note}
-                        </p>
-                        <QuoteSummary quote={q} />
+                      ))}
+                      <div className="grid grid-cols-2 gap-3">
+                        <Field title="Printing (NGN)">
+                          <input
+                            name="printing"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            required
+                            defaultValue={Number(quote?.printingMinor ?? 0) / 100}
+                            className={inputClass}
+                          />
+                        </Field>
+                        <Field title="Delivery (NGN)">
+                          <input
+                            name="delivery"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            required
+                            defaultValue={Number(quote?.deliveryMinor ?? 0) / 100}
+                            className={inputClass}
+                          />
+                        </Field>
                       </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </Section>
-          )}
-          <div id="payments">
-            <Section title="Payments">
-              <p className="text-sm text-neutral-600">
-                Send bank instructions through WhatsApp. Check the bank receipt before recording
-                payment here. Payment status updates from recorded payments; accepting an order does
-                not mark it paid.
-              </p>
-              <p className="text-sm">
-                Net received: <strong>{money(order.paidMinor)}</strong>
-                {order.totalMinor !== null && (
-                  <>
-                    {' '}
-                    · Balance:{' '}
-                    <strong>{money(Number(order.totalMinor) - Number(order.paidMinor))}</strong>
+                      <Field title="Quote note">
+                        <textarea name="note" maxLength={1000} className={inputClass} />
+                      </Field>
+                      <button
+                        disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                        className={buttonClass}
+                      >
+                        {quote ? 'Save revised quote' : 'Prepare quote'}
+                      </button>
+                    </form>
+                    {quote && (
+                      <div className="space-y-4 border-t pt-4">
+                        <QuoteSummary quote={quote} />
+                        <form
+                          className="space-y-3"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            void save({
+                              action: 'acceptQuote',
+                              quoteId: quote.id,
+                              note: new FormData(e.currentTarget).get('note'),
+                            });
+                          }}
+                        >
+                          <Field title="Customer acceptance record">
+                            <textarea
+                              name="note"
+                              placeholder="Who agreed, when, and through which channel?"
+                              required
+                              maxLength={1000}
+                              className={inputClass}
+                            />
+                          </Field>
+                          <button
+                            disabled={busy || order.status !== 'AWAITING_WHATSAPP'}
+                            className={buttonClass}
+                          >
+                            Record customer acceptance
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </>
                 )}
-              </p>
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  void save({
-                    action: 'payment',
-                    kind: form.get('kind'),
-                    amountMinor: minor(form, 'amount'),
-                    reference: form.get('reference'),
-                    reason: form.get('reason'),
-                  });
-                }}
-              >
-                <Field title="Record type">
-                  <select name="kind" className={inputClass}>
-                    <option value="PAYMENT">Payment received</option>
-                    <option value="REFUND" disabled={staff?.role !== 'ADMIN'}>
-                      Refund issued (administrator only)
-                    </option>
-                  </select>
-                </Field>
-                <Field title="Amount (NGN)">
-                  <input
-                    name="amount"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    className={inputClass}
-                  />
-                </Field>
-                <Field title="Bank / receipt reference">
-                  <input
-                    name="reference"
-                    required
-                    minLength={3}
-                    maxLength={150}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field title="Refund reason (required for refunds)">
-                  <textarea name="reason" maxLength={1000} className={inputClass} />
-                </Field>
-                <p className="text-xs text-neutral-600">
-                  Record only verified receipts or refunds. This does not move money.
+                {(workflow?.quotes.length ?? 0) > 1 && (
+                  <details>
+                    <summary className="cursor-pointer text-sm">Previous quote revisions</summary>
+                    <div className="mt-3 space-y-4">
+                      {workflow?.quotes.slice(1).map((q) => (
+                        <div key={q.id} className="border-t pt-3">
+                          <p className="mb-2 text-xs">
+                            {new Date(q.createdAt!).toLocaleString()} · {q.note}
+                          </p>
+                          <QuoteSummary quote={q} />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </Section>
+            ))}
+          {stage === 'payment' && (
+            <div id="payments">
+              <Section title="Payments">
+                <p className="text-sm text-neutral-600">
+                  Send bank instructions through WhatsApp. Check the bank receipt before recording
+                  payment here. Payment status updates from recorded payments; accepting an order
+                  does not mark it paid.
                 </p>
-                <button disabled={busy || order.totalMinor === null} className={buttonClass}>
-                  Record transaction
-                </button>
-              </form>
-              <ul className="space-y-2 text-sm">
-                {workflow?.payments.map((p) => (
-                  <li key={p.id} className="border-t pt-2">
-                    <span className="capitalize">{label(p.kind)}</span> · {money(p.amountMinor)}
-                    <p className="break-all text-xs text-neutral-500">
-                      {p.reference} · {new Date(p.createdAt).toLocaleString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+                <p className="text-sm">
+                  Net received: <strong>{money(order.paidMinor)}</strong>
+                  {order.totalMinor !== null && (
+                    <>
+                      {' '}
+                      · Balance:{' '}
+                      <strong>{money(Number(order.totalMinor) - Number(order.paidMinor))}</strong>
+                    </>
+                  )}
+                </p>
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = new FormData(e.currentTarget);
+                    void save({
+                      action: 'payment',
+                      kind: form.get('kind'),
+                      amountMinor: minor(form, 'amount'),
+                      reference: form.get('reference'),
+                      reason: form.get('reason'),
+                    });
+                  }}
+                >
+                  <Field title="Record type">
+                    <select name="kind" className={inputClass}>
+                      <option value="PAYMENT">Payment received</option>
+                      <option value="REFUND" disabled={staff?.role !== 'ADMIN'}>
+                        Refund issued (administrator only)
+                      </option>
+                    </select>
+                  </Field>
+                  <Field title="Amount (NGN)">
+                    <input
+                      name="amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field title="Bank / receipt reference">
+                    <input
+                      name="reference"
+                      required
+                      minLength={3}
+                      maxLength={150}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field title="Refund reason (required for refunds)">
+                    <textarea name="reason" maxLength={1000} className={inputClass} />
+                  </Field>
+                  <p className="text-xs text-neutral-600">
+                    Record only verified receipts or refunds. This does not move money.
+                  </p>
+                  <LoadingButton
+                    busy={busy && busyAction === 'payment'}
+                    disabled={order.totalMinor === null}
+                    className={buttonClass}
+                  >
+                    Record transaction
+                  </LoadingButton>
+                </form>
+                <ul className="space-y-2 text-sm">
+                  {workflow?.payments.map((p) => (
+                    <li key={p.id} className="border-t pt-2">
+                      <span className="capitalize">{label(p.kind)}</span> · {money(p.amountMinor)}
+                      <p className="break-all text-xs text-neutral-500">
+                        {p.reference} · {new Date(p.createdAt).toLocaleString()}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            </div>
+          )}
+          <details className="order-detail-disclosure">
+            <summary>More actions and history</summary>
+            <div className="space-y-6 pb-5">
+              <OrderNotifications reference={order.reference} version={version} />
+              <OrderReturns
+                reference={order.reference}
+                totalQuantity={order.totalQuantity}
+                items={workflow?.returnCases ?? []}
+                refresh={refresh}
+              />
+            </div>
+          </details>
+          {stage === 'prepare' && <PreparationChecklist order={order} busy={busy} save={save} />}
+          <div className="legacy-order-progress">
+            <Section title="Order progress">
+              {transitions[order.status]?.length ? (
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = new FormData(e.currentTarget);
+                    void save({
+                      action: 'status',
+                      status: form.get('status'),
+                      note: form.get('note'),
+                    });
+                  }}
+                >
+                  <Field title="Next status">
+                    <select name="status" className={inputClass}>
+                      {transitions[order.status]
+                        .filter(
+                          (s) => s !== 'DISPATCHED' || workflow?.deliveryMethod === 'DELIVERY'
+                        )
+                        .filter(
+                          (s) =>
+                            s !== 'COMPLETED' ||
+                            order.status === 'DISPATCHED' ||
+                            workflow?.deliveryMethod === 'COLLECTION'
+                        )
+                        .map((s) => (
+                          <option value={s} key={s}>
+                            {fulfilmentLabel(s, workflow?.deliveryMethod)}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <Field title="Reason / fulfilment record">
+                    <textarea name="note" required maxLength={1000} className={inputClass} />
+                  </Field>
+                  <button disabled={busy} className={buttonClass}>
+                    Update progress
+                  </button>
+                </form>
+              ) : (
+                <p className="text-sm">
+                  This order is {fulfilmentLabel(order.status, workflow?.deliveryMethod)}.
+                </p>
+              )}
+              <p className="text-xs text-neutral-600">
+                Confirmation reserves the selected blank wristband stock for plain and custom
+                orders.
+              </p>
+              {workflow?.reservations.map((r) => (
+                <p key={r.id} className="text-xs">
+                  {r.quantity} units · {label(r.state)}
+                </p>
+              ))}
             </Section>
           </div>
-          <OrderNotifications reference={order.reference} version={version} />
-          <OrderReturns
-            reference={order.reference}
-            totalQuantity={order.totalQuantity}
-            items={workflow?.returnCases ?? []}
-            refresh={refresh}
-          />
-          <PreparationChecklist order={order} busy={busy} save={save} />
-          <Section title="Order progress">
-            {transitions[order.status]?.length ? (
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const form = new FormData(e.currentTarget);
-                  void save({
-                    action: 'status',
-                    status: form.get('status'),
-                    note: form.get('note'),
-                  });
-                }}
-              >
-                <Field title="Next status">
-                  <select name="status" className={inputClass}>
-                    {transitions[order.status]
-                      .filter((s) => s !== 'DISPATCHED' || workflow?.deliveryMethod === 'DELIVERY')
-                      .filter(
-                        (s) =>
-                          s !== 'COMPLETED' ||
-                          order.status === 'DISPATCHED' ||
-                          workflow?.deliveryMethod === 'COLLECTION'
-                      )
-                      .map((s) => (
-                        <option value={s} key={s}>
-                          {fulfilmentLabel(s, workflow?.deliveryMethod)}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-                <Field title="Reason / fulfilment record">
-                  <textarea name="note" required maxLength={1000} className={inputClass} />
-                </Field>
-                <button disabled={busy} className={buttonClass}>
-                  Update progress
-                </button>
-              </form>
-            ) : (
-              <p className="text-sm">
-                This order is {fulfilmentLabel(order.status, workflow?.deliveryMethod)}.
-              </p>
-            )}
-            <p className="text-xs text-neutral-600">
-              Confirmation reserves the selected blank wristband stock for plain and custom orders.
-            </p>
-            {workflow?.reservations.map((r) => (
-              <p key={r.id} className="text-xs">
-                {r.quantity} units · {label(r.state)}
-              </p>
-            ))}
-          </Section>
         </div>
       </div>
     </main>

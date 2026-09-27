@@ -210,8 +210,7 @@
   box-shadow: 0 1px 2px #11182708;
 }
 .order-context-summary {
-  position: sticky;
-  top: 96px;
+  position: static;
   border: 1px solid #e9ebf0;
   border-radius: 13px;
   background: white;
@@ -244,6 +243,61 @@
 }
 .order-detail-disclosure pre {
   padding: 0 0 20px;
+}
+.workflow-next-step {
+  margin: 0 0 24px;
+  padding: 22px;
+  border: 1px solid #d6e7d9;
+  border-left: 4px solid #16a34a;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 1px 2px #11182708;
+}
+.workflow-eyebrow {
+  margin: 0;
+  color: #16713b;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.workflow-next-step h2 {
+  margin: 4px 0;
+  font-size: 20px;
+  font-weight: 750;
+}
+.workflow-next-step > p:not(.workflow-eyebrow) {
+  margin: 0;
+  color: #586174;
+  font-size: 14px;
+}
+.workflow-next-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-top: 16px;
+}
+.workflow-next-action textarea {
+  min-height: 44px;
+}
+.button-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: admin-button-spin 0.7s linear infinite;
+}
+@keyframes admin-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.legacy-order-progress {
+  display: none;
 }
 .order-preparation-grid {
   display: grid;

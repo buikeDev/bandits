@@ -27,5 +27,10 @@ export function useAdminData<T>(path: string) {
       active = false;
     };
   }, [path, revision]);
-  return { data, error, refresh: () => setRevision((v) => v + 1) };
+  return {
+    data,
+    error,
+    refresh: () => setRevision((v) => v + 1),
+    replace: (value: T) => setData(value),
+  };
 }
